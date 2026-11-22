@@ -418,7 +418,14 @@ jobs:
         run: |
           set -eux
           yes | sdkmanager --licenses >/dev/null 2>&1 || true
-          sdkmanager "platforms;android-36" "build-tools;36.0.0" "ndk;29.0.14206865"
+          # platforms;android-37 is NOT in the stable sdkmanager repo (still
+          # "Cinnamon Bun Preview"), but the GitHub runner images preinstall
+          # android-37.0 / build-tools 37.0.0 / NDK 29. Only install what is
+          # actually missing, so we never ask sdkmanager for a package it
+          # cannot fetch that is already on disk.
+          test -d "$ANDROID_HOME/platforms/android-37" || sdkmanager "platforms;android-37"
+          test -d "$ANDROID_HOME/build-tools/37.0.0" || sdkmanager "build-tools;37.0.0"
+          test -d "$ANDROID_HOME/ndk/29.0.14206865" || sdkmanager "ndk;29.0.14206865"
       - name: Download ksud artifacts
         uses: actions/download-artifact@v4
         with:
