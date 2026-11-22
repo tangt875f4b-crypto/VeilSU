@@ -3,7 +3,6 @@ on:
   workflow_dispatch:
 permissions:
   contents: write
-  workflows: write
 jobs:
   push-veilsu-v1:
     runs-on: ubuntu-latest
@@ -16,11 +15,13 @@ jobs:
           curl -L --retry 3 --fail -o /tmp/veil.patch "https://muse.ai/files/1459712547223268/1627534081735066/njai4hr4zji56m9pd0n7ewg9/0001-VeilSU-v1-rebrand-from-SukiSU-Nova-package-me.veilsu.patch"
           echo "f13608298c7f1ec5c5aa5d6910d198a5d674eb5821867c0054739f9d456d3eb6  /tmp/veil.patch" | sha256sum -c -
           wc -c /tmp/veil.patch
-      - name: Apply patch and push veilsu-v1
+      - name: Apply patch without workflow files and push veilsu-v1
         run: |
           git config user.name "tangt875f4b-crypto"
           git config user.email "tangt875f4b-crypto@users.noreply.github.com"
           git checkout -b veilsu-v1
-          git am /tmp/veil.patch
+          git apply --exclude=.github/workflows/* /tmp/veil.patch
+          git add -A
+          git commit -m "VeilSU v1: rebrand from SukiSU Nova (package me.veilsu.manager, v1.0.0)"
           git log --oneline -2
           git push origin veilsu-v1
