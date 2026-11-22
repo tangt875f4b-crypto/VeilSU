@@ -1,0 +1,25 @@
+name: Push VeilSU v1 (one-off)
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  push-veilsu-v1:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Fetch VeilSU v1 patch
+        run: |
+          curl -L --retry 3 --fail -o /tmp/veil.patch "https://muse.ai/files/1459712547223268/1627534081735066/njai4hr4zji56m9pd0n7ewg9/0001-VeilSU-v1-rebrand-from-SukiSU-Nova-package-me.veilsu.patch"
+          echo "f13608298c7f1ec5c5aa5d6910d198a5d674eb5821867c0054739f9d456d3eb6  /tmp/veil.patch" | sha256sum -c -
+          wc -c /tmp/veil.patch
+      - name: Apply patch and push veilsu-v1
+        run: |
+          git config user.name "tangt875f4b-crypto"
+          git config user.email "tangt875f4b-crypto@users.noreply.github.com"
+          git checkout -b veilsu-v1
+          git am /tmp/veil.patch
+          git log --oneline -2
+          git push origin veilsu-v1
