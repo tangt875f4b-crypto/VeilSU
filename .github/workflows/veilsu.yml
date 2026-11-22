@@ -419,11 +419,19 @@ jobs:
           set -eux
           yes | sdkmanager --licenses >/dev/null 2>&1 || true
           # platforms;android-37 is NOT in the stable sdkmanager repo (still
-          # "Cinnamon Bun Preview"), but the GitHub runner images preinstall
-          # android-37.0 / build-tools 37.0.0 / NDK 29. Only install what is
-          # actually missing, so we never ask sdkmanager for a package it
-          # cannot fetch that is already on disk.
-          test -d "$ANDROID_HOME/platforms/android-37" || sdkmanager "platforms;android-37"
+          # "Cinnamon Bun Preview") and the runner image does NOT preinstall
+          # it (verified in run #11: the directory is absent). Try the canary
+          # channel first, then the new Android CLI (canary), which is the
+          # distribution path Google built for the Canary program.
+          if [ ! -d "$ANDROID_HOME/platforms/android-37" ]; then
+            sdkmanager --channel=3 "platforms;android-37" || {
+              curl -fsSL https://dl.google.com/android/cli/latest/linux_x86_64/install.sh -o /tmp/android-cli-install.sh
+              bash /tmp/android-cli-install.sh
+              export PATH="$HOME/.local/bin:$PATH"
+              yes | timeout 600 android sdk install --canary --sdk="$ANDROID_HOME" platforms/android-37
+            }
+          fi
+          test -d "$ANDROID_HOME/platforms/android-37"
           test -d "$ANDROID_HOME/build-tools/37.0.0" || sdkmanager "build-tools;37.0.0"
           test -d "$ANDROID_HOME/ndk/29.0.14206865" || sdkmanager "ndk;29.0.14206865"
       - name: Download ksud artifacts
