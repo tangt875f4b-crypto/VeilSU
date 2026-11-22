@@ -282,7 +282,10 @@ jobs:
           source .github/scripts/setup-rust-build.sh riscv64-linux-android 35
           BUILTINS="$($CLANG_PATH --print-resource-dir)/lib/linux/libclang_rt.builtins-riscv64-android.a"
           test -f "$BUILTINS"
-          export RUSTFLAGS="-C target-feature=+crt-static -C link-arg=-Wl,-z,max-page-size=16384 -C link-arg=-Wno-unused-command-line-argument -C link-arg=$BUILTINS"
+          # No +crt-static here: NDK 29 ships no static liblog.a for riscv64, so
+          # -Bstatic -llog fails at link time. Dynamic link against Bionic instead
+          # (the other three targets keep static linking, where liblog.a exists).
+          export RUSTFLAGS="-C link-arg=-Wl,-z,max-page-size=16384 -C link-arg=-Wno-unused-command-line-argument -C link-arg=$BUILTINS"
           cargo +nightly-2026-09-23 build --config .github/riscv64-cargo.toml \
             -Z build-std=std,panic_abort --target riscv64-linux-android --release \
             --manifest-path ./userspace/ksud/Cargo.toml
