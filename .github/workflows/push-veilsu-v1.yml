@@ -3,6 +3,7 @@ on:
   workflow_dispatch:
 permissions:
   contents: write
+  workflows: write
 jobs:
   push-veilsu-v1:
     runs-on: ubuntu-latest
