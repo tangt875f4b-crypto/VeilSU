@@ -286,9 +286,14 @@ jobs:
           # -Bstatic -llog fails at link time. Dynamic link against Bionic instead
           # (the other three targets keep static linking, where liblog.a exists).
           export RUSTFLAGS="-C link-arg=-Wl,-z,max-page-size=16384 -C link-arg=-Wno-unused-command-line-argument -C link-arg=$BUILTINS"
+          # --package ksuinit: without it cargo builds only the ksud package
+          # (ksuinit is just its library dep), so release/ksuinit is never
+          # produced, the upload creates no artifact, and the ksud jobs fail
+          # downloading ksuinit-riscv64. The other three targets already pass
+          # --package ksuinit.
           cargo +nightly-2026-09-23 build --config .github/riscv64-cargo.toml \
             -Z build-std=std,panic_abort --target riscv64-linux-android --release \
-            --manifest-path ./userspace/ksud/Cargo.toml
+            --package ksuinit --manifest-path ./userspace/ksud/Cargo.toml
       - uses: actions/upload-artifact@v4
         with:
           name: ksuinit-aarch64
