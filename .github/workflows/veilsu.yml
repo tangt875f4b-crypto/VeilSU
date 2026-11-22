@@ -18,7 +18,7 @@
 #
 # Public trust values (also the defaults in kernel/Kbuild):
 #   package me.veilsu.manager (me.veilsu.manager.pr on PRs)
-#   KSU_EXPECTED_SIZE 0x52b, KSU_EXPECTED_HASH 0d5290a9e22b837f...
+#   KSU_EXPECTED_SIZE 0x52b, KSU_EXPECTED_HASH 58d0307d7f5e1d44...
 #
 # NOT verified without a push: DDK container KDIR layout, NDK/SDK availability
 # on ubuntu-latest, Gradle 9.7.1 + AGP 9.4.1 build, repack_apk.py on the new
@@ -59,7 +59,7 @@ env:
   VEILSU_PACKAGE: me.veilsu.manager
   VEILSU_PACKAGE_PR: me.veilsu.manager.pr
   VEILSU_EXPECTED_SIZE: 0x52b
-  VEILSU_EXPECTED_HASH: 0d5290a9e22b837f51ff82ffaf5f2a89fa35ce24060c3741dda5606743cf4e60
+  VEILSU_EXPECTED_HASH: 58d0307d7f5e1d444101ccb9b192168e1c76acd571cf7d9a7343bfb0f8658585
   KPM_TOOLS_BASE_URL: https://github.com/ShirkNeko/SukiSU_KernelPatch_patch/releases/download/0.14.0
 
 jobs:
@@ -156,7 +156,7 @@ jobs:
       KMI: ${{ matrix.kmi }}
       PACKAGE_NAME: ${{ github.event_name == 'pull_request' && 'me.veilsu.manager.pr' || 'me.veilsu.manager' }}
       EXPECTED_SIZE: ${{ needs.generate-key.outputs.expected_size || '0x52b' }}
-      EXPECTED_HASH: ${{ needs.generate-key.outputs.expected_hash || '0d5290a9e22b837f51ff82ffaf5f2a89fa35ce24060c3741dda5606743cf4e60' }}
+      EXPECTED_HASH: ${{ needs.generate-key.outputs.expected_hash || '58d0307d7f5e1d444101ccb9b192168e1c76acd571cf7d9a7343bfb0f8658585' }}
       KSU_VERSION_CODE: ${{ needs.determine-version.outputs.version_code }}
     steps:
       - uses: actions/checkout@v4
@@ -255,10 +255,9 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: nightly-2026-09-23
-          targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android
-          components: rust-src
+          targets: riscv64-linux-android
       - name: Set up Android NDK
-        uses: android-actions/setup-android@v4
+        uses: android-actions/setup-android@v3
       - name: Install NDK
         run: |
           set -eux
@@ -282,18 +281,10 @@ jobs:
           source .github/scripts/setup-rust-build.sh riscv64-linux-android 35
           BUILTINS="$($CLANG_PATH --print-resource-dir)/lib/linux/libclang_rt.builtins-riscv64-android.a"
           test -f "$BUILTINS"
-          # No +crt-static here: NDK 29 ships no static liblog.a for riscv64, so
-          # -Bstatic -llog fails at link time. Dynamic link against Bionic instead
-          # (the other three targets keep static linking, where liblog.a exists).
-          export RUSTFLAGS="-C link-arg=-Wl,-z,max-page-size=16384 -C link-arg=-Wno-unused-command-line-argument -C link-arg=$BUILTINS"
-          # --package ksuinit: without it cargo builds only the ksud package
-          # (ksuinit is just its library dep), so release/ksuinit is never
-          # produced, the upload creates no artifact, and the ksud jobs fail
-          # downloading ksuinit-riscv64. The other three targets already pass
-          # --package ksuinit.
+          export RUSTFLAGS="-C target-feature=+crt-static -C link-arg=-Wl,-z,max-page-size=16384 -C link-arg=-Wno-unused-command-line-argument -C link-arg=$BUILTINS"
           cargo +nightly-2026-09-23 build --config .github/riscv64-cargo.toml \
             -Z build-std=std,panic_abort --target riscv64-linux-android --release \
-            --package ksuinit --manifest-path ./userspace/ksud/Cargo.toml
+            --manifest-path ./userspace/ksud/Cargo.toml
       - uses: actions/upload-artifact@v4
         with:
           name: ksuinit-aarch64
@@ -325,7 +316,6 @@ jobs:
         with:
           fetch-depth: 1
       - name: Set up Rust
-        if: matrix.target != 'riscv64-linux-android'
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
@@ -334,9 +324,9 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: nightly-2026-09-23
-          components: rust-src
+          targets: riscv64-linux-android
       - name: Set up Android NDK
-        uses: android-actions/setup-android@v4
+        uses: android-actions/setup-android@v3
       - name: Install NDK
         run: |
           set -eux
@@ -413,12 +403,12 @@ jobs:
           distribution: temurin
           java-version: "21"
       - name: Set up Android SDK
-        uses: android-actions/setup-android@v4
+        uses: android-actions/setup-android@v3
       - name: Install SDK packages
         run: |
           set -eux
           yes | sdkmanager --licenses >/dev/null 2>&1 || true
-          sdkmanager "platforms;android-37" "build-tools;37.0.0" "ndk;29.0.14206865"
+          sdkmanager "platforms;android-36" "build-tools;36.0.0" "ndk;29.0.14206865"
       - name: Download ksud artifacts
         uses: actions/download-artifact@v4
         with:
