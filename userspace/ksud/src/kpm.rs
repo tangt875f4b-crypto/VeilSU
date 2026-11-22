@@ -75,9 +75,9 @@ where
             event: event_c.as_ptr() as u64,
         });
     let control_code = if event_cmd.is_some() {
-        ksu_uapi::SUKISU_KPM_LOAD_EVENT
+        ksu_uapi::VEILSU_KPM_LOAD_EVENT
     } else {
-        ksu_uapi::SUKISU_KPM_LOAD
+        ksu_uapi::VEILSU_KPM_LOAD
     };
     let payload_ptr = event_cmd
         .as_ref()
@@ -123,7 +123,7 @@ pub fn list() -> Result<()> {
     println!(
         "{}",
         read_text(
-            ksu_uapi::SUKISU_KPM_LIST,
+            ksu_uapi::VEILSU_KPM_LIST,
             KPM_TEXT_BUF_SIZE,
             "Failed to get KPM list",
         )?
@@ -134,7 +134,7 @@ pub fn list() -> Result<()> {
 pub fn unload_module(name: &str) -> Result<()> {
     let name_c = cstring(OsStr::new(name), "KPM module name")?;
 
-    let ret = kpm_io(ksu_uapi::SUKISU_KPM_UNLOAD, name_c.as_ptr() as u64, 0)?;
+    let ret = kpm_io(ksu_uapi::VEILSU_KPM_UNLOAD, name_c.as_ptr() as u64, 0)?;
     check_result(&format!("Failed to unload KPM module {name}"), ret)
 }
 
@@ -143,7 +143,7 @@ pub fn info(name: &str) -> Result<()> {
     let mut buf = vec![0u8; KPM_INFO_BUF_SIZE];
 
     let ret = kpm_io(
-        ksu_uapi::SUKISU_KPM_INFO,
+        ksu_uapi::VEILSU_KPM_INFO,
         name_c.as_ptr() as u64,
         buf.as_mut_ptr() as u64,
     )?;
@@ -157,7 +157,7 @@ pub fn control(name: &str, args: String) -> Result<i32> {
     let args_c = CString::new(args)?;
 
     let ret = kpm_io(
-        ksu_uapi::SUKISU_KPM_CONTROL,
+        ksu_uapi::VEILSU_KPM_CONTROL,
         name_c.as_ptr() as u64,
         args_c.as_ptr() as u64,
     )?;
@@ -166,7 +166,7 @@ pub fn control(name: &str, args: String) -> Result<i32> {
 }
 
 pub fn num() -> Result<i32> {
-    let ret = kpm_io(ksu_uapi::SUKISU_KPM_NUM, 0, 0)?;
+    let ret = kpm_io(ksu_uapi::VEILSU_KPM_NUM, 0, 0)?;
     check_result("Failed to get KPM module count", ret)?;
     println!("{ret}");
     Ok(ret)
@@ -174,7 +174,7 @@ pub fn num() -> Result<i32> {
 
 pub fn version() -> Result<()> {
     let version = read_text(
-        ksu_uapi::SUKISU_KPM_VERSION,
+        ksu_uapi::VEILSU_KPM_VERSION,
         KPM_TEXT_BUF_SIZE,
         "Failed to get KPM version",
     )?;
@@ -184,7 +184,7 @@ pub fn version() -> Result<()> {
 
 pub fn check_version() -> Result<String> {
     let binding = read_text(
-        ksu_uapi::SUKISU_KPM_VERSION,
+        ksu_uapi::VEILSU_KPM_VERSION,
         KPM_TEXT_BUF_SIZE,
         "KPM version ioctl failed",
     )?;

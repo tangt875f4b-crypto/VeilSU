@@ -21,7 +21,7 @@
 /* Legacy INFO has no capacity argument. Existing ksud allocates 256 bytes. */
 #define KPM_INFO_LEN 256
 
-long __nocfi sukisu_kpm_bridge(unsigned long op, unsigned long a1, unsigned long a2,
+long __nocfi veilsu_kpm_bridge(unsigned long op, unsigned long a1, unsigned long a2,
                               unsigned long a3, unsigned long a4)
 {
 #ifdef CONFIG_ARM64
@@ -38,14 +38,14 @@ long __nocfi sukisu_kpm_bridge(unsigned long op, unsigned long a1, unsigned long
         WRITE_ONCE(handler, fn);
     }
     regs.pstate = PSR_MODE_EL1h;
-    regs.regs[0] = SUKISU_KPM_SUPERCALL_MAGIC;
-    regs.regs[6] = SUKISU_KPM_SUPERCALL_MAGIC2;
-    regs.regs[7] = SUKISU_KPM_SUPERCALL_MAGIC3;
-    regs.regs[8] = SUKISU_KPM_ABI_VERSION;
-    regs.regs[1] = SUKISU_KPM_PROBE;
+    regs.regs[0] = VEILSU_KPM_SUPERCALL_MAGIC;
+    regs.regs[6] = VEILSU_KPM_SUPERCALL_MAGIC2;
+    regs.regs[7] = VEILSU_KPM_SUPERCALL_MAGIC3;
+    regs.regs[8] = VEILSU_KPM_ABI_VERSION;
+    regs.regs[1] = VEILSU_KPM_PROBE;
     /* Without KP this is a real truncate handler: the magic is a non-userspace
      * address and yields an error, not a function pointer. */
-    if (fn(&regs) != SUKISU_KPM_ABI_VERSION) return -EOPNOTSUPP;
+    if (fn(&regs) != VEILSU_KPM_ABI_VERSION) return -EOPNOTSUPP;
     regs.regs[1] = op;
     regs.regs[2] = a1;
     regs.regs[3] = a2;
@@ -96,7 +96,7 @@ static int handle_kpm_load_event(const struct ksu_kpm_cmd *cmd)
     if (!rc) rc = copy_string(args, u64_to_user_ptr(load.args), KPM_ARGS_LEN, true);
     if (!rc) rc = copy_string(event, u64_to_user_ptr(load.event), KPM_EVENT_LEN, false);
     if (!rc) {
-        rc = sukisu_kpm_bridge(SUKISU_KPM_LOAD_EVENT, (unsigned long)path,
+        rc = veilsu_kpm_bridge(VEILSU_KPM_LOAD_EVENT, (unsigned long)path,
                                (unsigned long)args, (unsigned long)event, 0);
     }
 
@@ -115,59 +115,59 @@ static int handle_kpm(const struct ksu_kpm_cmd *cmd)
     long rc;
     size_t size;
 
-    if (cmd->control_code == SUKISU_KPM_NUM)
-        return sukisu_kpm_bridge(SUKISU_KPM_NUM, 0, 0, 0, 0);
+    if (cmd->control_code == VEILSU_KPM_NUM)
+        return veilsu_kpm_bridge(VEILSU_KPM_NUM, 0, 0, 0, 0);
 
-    if (cmd->control_code == SUKISU_KPM_LOAD_EVENT)
+    if (cmd->control_code == VEILSU_KPM_LOAD_EVENT)
         return handle_kpm_load_event(cmd);
 
-    if (cmd->control_code == SUKISU_KPM_LOAD ||
-        cmd->control_code == SUKISU_KPM_CONTROL) {
-        size = cmd->control_code == SUKISU_KPM_LOAD ? KPM_PATH_LEN : KPM_NAME_LEN;
+    if (cmd->control_code == VEILSU_KPM_LOAD ||
+        cmd->control_code == VEILSU_KPM_CONTROL) {
+        size = cmd->control_code == VEILSU_KPM_LOAD ? KPM_PATH_LEN : KPM_NAME_LEN;
         buf = kzalloc(size + KPM_ARGS_LEN, GFP_KERNEL);
         if (!buf) return -ENOMEM;
         args = buf + size;
         rc = copy_string(buf, arg1, size, false);
         if (!rc) rc = copy_string(args, arg2, KPM_ARGS_LEN,
-                                  cmd->control_code == SUKISU_KPM_LOAD);
-        if (!rc) rc = sukisu_kpm_bridge(cmd->control_code, (unsigned long)buf,
+                                  cmd->control_code == VEILSU_KPM_LOAD);
+        if (!rc) rc = veilsu_kpm_bridge(cmd->control_code, (unsigned long)buf,
                                         (unsigned long)args, 0, 0);
         kfree(buf);
         return rc;
     }
-    if (cmd->control_code == SUKISU_KPM_UNLOAD) {
+    if (cmd->control_code == VEILSU_KPM_UNLOAD) {
         name = kmalloc(KPM_NAME_LEN, GFP_KERNEL);
         if (!name) return -ENOMEM;
         rc = copy_string(name, arg1, KPM_NAME_LEN, false);
-        if (!rc) rc = sukisu_kpm_bridge(SUKISU_KPM_UNLOAD, (unsigned long)name, 0, 0, 0);
+        if (!rc) rc = veilsu_kpm_bridge(VEILSU_KPM_UNLOAD, (unsigned long)name, 0, 0, 0);
         kfree(name);
         return rc;
     }
-    if (cmd->control_code == SUKISU_KPM_INFO) {
+    if (cmd->control_code == VEILSU_KPM_INFO) {
         name = kmalloc(KPM_NAME_LEN + KPM_INFO_LEN, GFP_KERNEL);
         if (!name) return -ENOMEM;
         buf = name + KPM_NAME_LEN;
         rc = copy_string(name, arg1, KPM_NAME_LEN, false);
         if (!rc) {
-            rc = sukisu_kpm_bridge(SUKISU_KPM_INFO, (unsigned long)name,
+            rc = veilsu_kpm_bridge(VEILSU_KPM_INFO, (unsigned long)name,
                                     (unsigned long)buf, KPM_INFO_LEN, 0);
             rc = copy_output((void __user *)arg2, buf, rc, KPM_INFO_LEN);
         }
         kfree(name);
         return rc;
     }
-    if (cmd->control_code != SUKISU_KPM_LIST &&
-        cmd->control_code != SUKISU_KPM_VERSION) return -EOPNOTSUPP;
-    if (!cmd->arg2 || cmd->arg2 > SUKISU_KPM_OUTPUT_MAX) return -EINVAL;
+    if (cmd->control_code != VEILSU_KPM_LIST &&
+        cmd->control_code != VEILSU_KPM_VERSION) return -EOPNOTSUPP;
+    if (!cmd->arg2 || cmd->arg2 > VEILSU_KPM_OUTPUT_MAX) return -EINVAL;
     size = cmd->arg2;
     buf = kzalloc(size, GFP_KERNEL);
     if (!buf) return -ENOMEM;
-    rc = sukisu_kpm_bridge(cmd->control_code, (unsigned long)buf, size, 0, 0);
+    rc = veilsu_kpm_bridge(cmd->control_code, (unsigned long)buf, size, 0, 0);
     if (rc >= 0) {
         long length = rc;
         rc = copy_output((void __user *)arg1, buf, length, size);
         /* LIST historically returns its length; VERSION returns status. */
-        if (!rc && cmd->control_code == SUKISU_KPM_LIST) rc = length;
+        if (!rc && cmd->control_code == VEILSU_KPM_LIST) rc = length;
     }
     kfree(buf);
     return rc;

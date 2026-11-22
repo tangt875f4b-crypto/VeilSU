@@ -176,11 +176,11 @@ obj-$(CONFIG_KSU) += kernelsu.o
 
 MDIR := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
 
-REPO_OWNER  := shirkneko
-REPO_NAME   := SukiSU
+REPO_OWNER  := tangt875f4b-crypto
+REPO_NAME   := VeilSU
 REPO_BRANCH := main
 
-VERSION_BASE    := 30000
+VERSION_BASE    := 10000
 VERSION_OFFSET  := 996
 
 GIT_BIN  := /usr/bin/env PATH="$$PATH":/usr/bin:/usr/local/bin git
@@ -196,12 +196,12 @@ git_latest_tag   = $(shell cd $(KSU_SRC) && $(GIT_BIN) describe --tags --abbrev=
 
 $(shell cd $(KSU_SRC) 2>/dev/null && [ -f ../.git/shallow ] && $(GIT_BIN) fetch --unshallow 2>/dev/null)
 
-RELEASE_API_BASE := https://git.zako.shirkneko.top:20004/api/v1/repos/$(REPO_OWNER)/$(REPO_NAME)
+RELEASE_API_BASE := https://api.github.com/repos/$(REPO_OWNER)/$(REPO_NAME)
 KSU_RELEASE_VER  := $(shell $(CURL_BIN) -s "$(RELEASE_API_BASE)/releases/latest" 2>/dev/null | grep -o '"tag_name":"[^"]*"' | head -1 | cut -d'"' -f4 | sed 's/^v//')
 RELEASE_COMMITS  := $(shell $(CURL_BIN) -s -D - -o /dev/null "$(RELEASE_API_BASE)/commits?sha=$(REPO_BRANCH)&limit=1" 2>/dev/null | tr -d '\r' | sed -n 's/^[Xx]-[Tt]otal-[Cc]ount:[[:space:]]*\([0-9]*\).*/\1/p')
 LOCAL_COUNT     := $(if $(RELEASE_COMMITS),$(RELEASE_COMMITS),$(git_commit_count))
 KSU_VERSION     := $(if $(LOCAL_COUNT),$(shell expr $(VERSION_BASE) + $(LOCAL_COUNT) + $(VERSION_OFFSET)),$(VERSION_BASE))
-VERSION_TAG     := $(or $(KSU_RELEASE_VER),$(git_latest_tag),3.0.0)
+VERSION_TAG     := $(or $(KSU_RELEASE_VER),$(git_latest_tag),1.0.0)
 KSU_VERSION_FULL := $(if $(call git_short_sha),v$(VERSION_TAG)-$(call git_short_sha)@$(call git_branch),v$(VERSION_TAG)-$(REPO_NAME)-unknown@unknown)
 $(info -- $(REPO_NAME) version: $(KSU_VERSION) [$(KSU_VERSION_FULL)])
 
@@ -210,12 +210,12 @@ ccflags-y += -DKSU_VERSION_FULL=\"$(KSU_VERSION_FULL)\"
 
 KSU_IS_PR_BUILD ?= 0
 ifeq ($(KSU_IS_PR_BUILD),0)
-KSU_PACKAGE_NAME ?= com.sukisu.nova
+KSU_PACKAGE_NAME ?= me.veilsu.manager
 else
-KSU_PACKAGE_NAME ?= com.sukisu.nova.pr
+KSU_PACKAGE_NAME ?= me.veilsu.manager.pr
 endif
-KSU_EXPECTED_SIZE ?= 0x35c
-KSU_EXPECTED_HASH ?= 947ae944f3de4ed4c21a7e4f7953ecf351bfa2b36239da37a34111ad29993eef
+KSU_EXPECTED_SIZE ?= 0x52b
+KSU_EXPECTED_HASH ?= 58d0307d7f5e1d444101ccb9b192168e1c76acd571cf7d9a7343bfb0f8658585
 
 $(info -- KernelSU Manager package name: $(KSU_PACKAGE_NAME))
 $(info -- KernelSU Manager signature size: $(KSU_EXPECTED_SIZE))

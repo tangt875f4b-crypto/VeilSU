@@ -176,15 +176,15 @@ struct ksu_extension_cmd {
 };
 
 // 0. KPM
-static const __u32 SUKISU_KPM_LOAD = 1;
-static const __u32 SUKISU_KPM_UNLOAD = 2;
-static const __u32 SUKISU_KPM_NUM = 3;
-static const __u32 SUKISU_KPM_LIST = 4;
-static const __u32 SUKISU_KPM_INFO = 5;
-static const __u32 SUKISU_KPM_CONTROL = 6;
-static const __u32 SUKISU_KPM_VERSION = 7;
+static const __u32 VEILSU_KPM_LOAD = 1;
+static const __u32 VEILSU_KPM_UNLOAD = 2;
+static const __u32 VEILSU_KPM_NUM = 3;
+static const __u32 VEILSU_KPM_LIST = 4;
+static const __u32 VEILSU_KPM_INFO = 5;
+static const __u32 VEILSU_KPM_CONTROL = 6;
+static const __u32 VEILSU_KPM_VERSION = 7;
 /* Optional event-aware load used for boot-stage modules. */
-static const __u32 SUKISU_KPM_LOAD_EVENT = 8;
+static const __u32 VEILSU_KPM_LOAD_EVENT = 8;
 
 struct ksu_kpm_cmd {
     __aligned_u64 control_code;
@@ -193,7 +193,7 @@ struct ksu_kpm_cmd {
     __aligned_u64 result_code;
 };
 
-/* arg2 payload for SUKISU_KPM_LOAD_EVENT. Both fields are user pointers. */
+/* arg2 payload for VEILSU_KPM_LOAD_EVENT. Both fields are user pointers. */
 struct ksu_kpm_load_event_cmd {
     __aligned_u64 args;
     __aligned_u64 event;

@@ -219,7 +219,7 @@ fn lock(name: &str, nonblocking: bool) -> Result<File> {
     Ok(file)
 }
 
-const HEADER: &str = "SUKISU_TEMPORARY_ROOT_V1";
+const HEADER: &str = "VEILSU_TEMPORARY_ROOT_V1";
 
 fn encode(leases: &[Lease]) -> Result<String> {
     use std::fmt::Write;
@@ -600,7 +600,7 @@ mod tests {
     #[test]
     fn reject_corrupt_state() {
         assert!(decode("").is_err());
-        assert!(decode("SUKISU_TEMPORARY_ROOT_V2\n").is_err());
+        assert!(decode("VEILSU_TEMPORARY_ROOT_V2\n").is_err());
         assert!(
             decode(&format!(
                 "{HEADER}\n10001\t10002\tabcd\tinvalid\tcom.example"

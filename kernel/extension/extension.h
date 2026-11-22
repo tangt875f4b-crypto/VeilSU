@@ -214,7 +214,7 @@ void ksu_extension_register_all(void);
  * instead of hand-rolling the bit shifts:
  *
  *   u64 v = KSU_EXTENSION_FORCE_PACK(7, 0x42);
- *   if (KSU_EXTENSION_FORCE_OP(v) != SUKISU_KPM_VERSION) ...;
+ *   if (KSU_EXTENSION_FORCE_OP(v) != VEILSU_KPM_VERSION) ...;
  *   do_thing_with(KSU_EXTENSION_FORCE_ARG(v));
  *
  * # Stability

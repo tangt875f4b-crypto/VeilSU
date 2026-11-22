@@ -19,7 +19,7 @@
  * this in a boot config will not encounter the (op, arg) split
  * unless they intentionally compose a 64-bit value with a 32-bit
  * sub-op in the low half. (Such a value is meaningful only for
- * sub-ops that actually consume `arg`; today only SUKISU_KPM_VERSION
+ * sub-ops that actually consume `arg`; today only VEILSU_KPM_VERSION
  * is recognised, and it ignores the arg.)
  *
  * New sub-op authors:
@@ -35,7 +35,7 @@
  * be flipped at runtime from the extension hub. force_extension=kpm:1
  * (or any other sub-op) does not load a KPM module, start the KPM
  * watcher, or otherwise alter runtime state. The only recognised
- * sub-op is SUKISU_KPM_VERSION (a no-op dmesg probe that prints
+ * sub-op is VEILSU_KPM_VERSION (a no-op dmesg probe that prints
  * whether CONFIG_KPM is on); any other sub-op is a no-op + warning
  * and clears the forced-pending bit because the value has been
  * consumed. If you want a real "force KPM" knob, wire it through
@@ -56,7 +56,7 @@
 int ksu_extension_kpm_get(u32 id, u64 *value)
 {
 #ifdef CONFIG_KPM
-    *value = sukisu_kpm_bridge(SUKISU_KPM_PROBE, 0, 0, 0, 0) == SUKISU_KPM_ABI_VERSION;
+    *value = veilsu_kpm_bridge(VEILSU_KPM_PROBE, 0, 0, 0, 0) == VEILSU_KPM_ABI_VERSION;
 #else
     *value = 0;
 #endif
@@ -73,7 +73,7 @@ int ksu_extension_kpm_io(u32 id, void __user *raw)
     return do_kpm(raw);
 #else
     (void)raw;
-    pr_warn_once("extension/kpm: IO disabled: rebuild SukiSU with CONFIG_KPM=y\n");
+    pr_warn_once("extension/kpm: IO disabled: rebuild VeilSU with CONFIG_KPM=y\n");
     return -EOPNOTSUPP;
 #endif
 }
@@ -91,7 +91,7 @@ void ksu_extension_kpm_apply_forced(u32 id, u64 value)
     u32 arg = KSU_EXTENSION_FORCE_ARG(value);
 
     switch (op) {
-    case SUKISU_KPM_VERSION:
+    case VEILSU_KPM_VERSION:
 #ifdef CONFIG_KPM
         pr_info("extension/kpm: forced VERSION probe, KPM is built in (arg=%u)\n", arg);
 #else
