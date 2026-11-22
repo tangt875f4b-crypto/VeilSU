@@ -59,7 +59,7 @@ env:
   VEILSU_PACKAGE: me.veilsu.manager
   VEILSU_PACKAGE_PR: me.veilsu.manager.pr
   VEILSU_EXPECTED_SIZE: 0x52b
-  VEILSU_EXPECTED_HASH: 58d0307d7f5e1d444101ccb9b192168e1c76acd571cf7d9a7343bfb0f8658585
+  VEILSU_EXPECTED_HASH: 0d5290a9e22b837f51ff82ffaf5f2a89fa35ce24060c3741dda5606743cf4e60
   KPM_TOOLS_BASE_URL: https://github.com/ShirkNeko/SukiSU_KernelPatch_patch/releases/download/0.14.0
 
 jobs:
@@ -156,7 +156,7 @@ jobs:
       KMI: ${{ matrix.kmi }}
       PACKAGE_NAME: ${{ github.event_name == 'pull_request' && 'me.veilsu.manager.pr' || 'me.veilsu.manager' }}
       EXPECTED_SIZE: ${{ needs.generate-key.outputs.expected_size || '0x52b' }}
-      EXPECTED_HASH: ${{ needs.generate-key.outputs.expected_hash || '58d0307d7f5e1d444101ccb9b192168e1c76acd571cf7d9a7343bfb0f8658585' }}
+      EXPECTED_HASH: ${{ needs.generate-key.outputs.expected_hash || '0d5290a9e22b837f51ff82ffaf5f2a89fa35ce24060c3741dda5606743cf4e60' }}
       KSU_VERSION_CODE: ${{ needs.determine-version.outputs.version_code }}
     steps:
       - uses: actions/checkout@v4
@@ -255,7 +255,7 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: nightly-2026-09-23
-          targets: riscv64-linux-android
+          components: rust-src
       - name: Set up Android NDK
         uses: android-actions/setup-android@v3
       - name: Install NDK
@@ -316,6 +316,7 @@ jobs:
         with:
           fetch-depth: 1
       - name: Set up Rust
+        if: matrix.target != 'riscv64-linux-android'
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
@@ -324,7 +325,7 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: nightly-2026-09-23
-          targets: riscv64-linux-android
+          components: rust-src
       - name: Set up Android NDK
         uses: android-actions/setup-android@v3
       - name: Install NDK
