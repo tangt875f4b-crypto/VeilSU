@@ -215,7 +215,7 @@ else
 KSU_PACKAGE_NAME ?= me.veilsu.manager.pr
 endif
 KSU_EXPECTED_SIZE ?= 0x52b
-KSU_EXPECTED_HASH ?= 58d0307d7f5e1d444101ccb9b192168e1c76acd571cf7d9a7343bfb0f8658585
+KSU_EXPECTED_HASH ?= 0d5290a9e22b837f51ff82ffaf5f2a89fa35ce24060c3741dda5606743cf4e60
 
 $(info -- KernelSU Manager package name: $(KSU_PACKAGE_NAME))
 $(info -- KernelSU Manager signature size: $(KSU_EXPECTED_SIZE))
