@@ -194,9 +194,6 @@ sealed interface Route : NavKey, Parcelable {
 
     @Parcelize
     @Serializable
-    
-    @Parcelize
-    @Serializable
     data object AiAssistant : Route
 
     
