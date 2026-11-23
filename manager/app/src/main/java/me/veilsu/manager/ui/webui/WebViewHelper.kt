@@ -68,27 +68,29 @@ internal suspend fun prepareWebView(
         val moduleName: String
         val modDir: String
 
-        {
-            val modules = repo.getModules().getOrDefault(emptyList())
-            val moduleInfo = modules.find { info -> info.id == moduleId }
+        // NOTE (2026-11-23): the builtin_zygisk branch was removed with Zygisk;
+        // the remaining lookup must NOT be wrapped in a bare `{ ... }` block —
+        // in Kotlin that is a lambda literal, never invoked, so moduleName /
+        // modDir were never assigned ("must be initialized", CI run #17).
+        val modules = repo.getModules().getOrDefault(emptyList())
+        val moduleInfo = modules.find { info -> info.id == moduleId }
 
-            if (moduleInfo == null) {
-                withContext(Dispatchers.Main) {
-                    webUIState.uiEvent = WebUIEvent.Error(activity.getString(R.string.no_such_module, moduleId))
-                }
-                return@withContext
+        if (moduleInfo == null) {
+            withContext(Dispatchers.Main) {
+                webUIState.uiEvent = WebUIEvent.Error(activity.getString(R.string.no_such_module, moduleId))
             }
-
-            if (!moduleInfo.hasWebUi || !moduleInfo.enabled || moduleInfo.update || moduleInfo.remove) {
-                withContext(Dispatchers.Main) {
-                    webUIState.uiEvent = WebUIEvent.Error(activity.getString(R.string.module_unavailable, moduleInfo.name))
-                }
-                return@withContext
-            }
-
-            moduleName = moduleInfo.name
-            modDir = "/data/adb/modules/${moduleId}"
+            return@withContext
         }
+
+        if (!moduleInfo.hasWebUi || !moduleInfo.enabled || moduleInfo.update || moduleInfo.remove) {
+            withContext(Dispatchers.Main) {
+                webUIState.uiEvent = WebUIEvent.Error(activity.getString(R.string.module_unavailable, moduleInfo.name))
+            }
+            return@withContext
+        }
+
+        moduleName = moduleInfo.name
+        modDir = "/data/adb/modules/${moduleId}"
 
         webUIState.moduleName = moduleName
         webUIState.modDir = modDir

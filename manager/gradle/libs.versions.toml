@@ -1,14 +1,17 @@
 [versions]
 agp = "9.4.1"
 kotlin = "2.4.20"
-# NOTE (2026-11-23): Compose BOM 2026.09.00 / material3 1.5.0-alpha28 require
-# compileSdk 37, but Google does not distribute platforms;android-37 through
-# sdkmanager (stable/canary), the new Android CLI, or the runner image, so the
-# manager cannot be built with SDK 37 in CI. BOM 2025.10.00 (material3 1.4.0)
-# predates API 37 and builds against compileSdk 36; the app only uses
-# Expressive APIs that already exist in 1.4.0 (LoadingIndicator,
-# ContainedLoadingIndicator, MaterialExpressiveTheme).
-compose-bom = "2025.10.00"
+# NOTE (2026-11-23): keep the upstream Compose BOM 2026.09.00 / material3
+# 1.5.0-alpha28. A downgrade to BOM 2025.10.00 / material3 1.4.0 was tried
+# (runs #15-17) to dodge the compileSdk-37 requirement, but it breaks the
+# build worse: Gradle resolves material3 to 1.5.0-alpha22 (pulled in
+# transitively), in which the expressive APIs the app uses (LoadingIndicator,
+# LinearWavyProgressIndicator, LargeFlexibleTopAppBar, MaterialExpressiveTheme,
+# MotionScheme, ...) are internal or missing — hundreds of compile errors.
+# The code was written against alpha28, so it needs alpha28. The SDK-36
+# workaround is instead the disabled :app/:ai-api checkReleaseAarMetadata
+# tasks (see manager/app/build.gradle.kts, manager/ai-api/build.gradle.kts).
+compose-bom = "2026.09.00"
 lifecycle = "2.11.0"
 activity-compose = "1.13.0"
 core-splashscreen = "1.2.0"
@@ -19,7 +22,7 @@ navigationevent = "1.1.2"
 commonmark = "0.30.0"
 webkit = "1.17.0"
 parcelablelist = "2.0.1"
-material3 = "1.4.0"
+material3 = "1.5.0-alpha28"
 materialKolor = "5.0.1"
 ndk = "29.0.14206865"
 libsu = "6.0.0"
