@@ -480,6 +480,11 @@ tasks.named("preBuild").configure { dependsOn(downloadKpmTools) }
 // guards against libraries calling API-37-only methods, and the test device
 // runs Android 17 (API 37), where those methods exist. Re-enable this check
 // once a real android-37 platform is available in CI.
-tasks.named("checkReleaseAarMetadata") {
-    enabled = false
+// (tasks.named(...) does NOT work here: AGP registers checkReleaseAarMetadata
+// lazily, so the lookup fails at configuration time — run #16. configureEach
+// applies to tasks registered later as well.)
+tasks.configureEach {
+    if (name == "checkReleaseAarMetadata") {
+        enabled = false
+    }
 }
