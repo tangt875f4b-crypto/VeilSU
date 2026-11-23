@@ -69,3 +69,9 @@ tasks.configureEach {
         enabled = false
     }
 }
+
+// The disabled check never creates its output directory, but Gradle
+// validates :ai-api:bundleReleaseAar's `aarMetadataCheck` input at execution
+// time and fails the build if the directory does not exist (run #18).
+// Pre-create it at configuration time; it stays empty and nothing consumes it.
+file("build/intermediates/aar_metadata_check/release/checkReleaseAarMetadata").mkdirs()

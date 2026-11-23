@@ -488,3 +488,8 @@ tasks.configureEach {
         enabled = false
     }
 }
+
+// Same as :ai-api (run #18): the disabled check never creates its output
+// directory. Pre-create it at configuration time in case any later task
+// validates it as an input.
+file("build/intermediates/aar_metadata_check/release/checkReleaseAarMetadata").mkdirs()
