@@ -134,16 +134,7 @@ class AccountRepository(
         val base = resolvedBase(baseUrl) ?: return
         synchronized(SESSION_WRITE_LOCK) {
             val current = loadSessions()
-            val targets = if (ThemeStoreDefaults.isBuiltInBaseUrl(base)) {
-                // The built-in mirrors are automatically interchangeable; sign out
-                // from all of them so a fallback session cannot reappear.
-                ThemeStoreDefaults.BASE_URLS
-                    .mapNotNull { ThemeStoreRepository.normalizeBaseUrl(it) }
-                    .toSet() + base
-            } else {
-                setOf(base)
-            }
-            val remaining = current - targets
+            val remaining = current - base
             if (remaining.size != current.size) {
                 persistSessions(remaining)
             }
@@ -156,20 +147,7 @@ class AccountRepository(
 
     fun sessionFor(baseUrl: String): AccountSession? {
         val normalized = resolvedBase(baseUrl) ?: return null
-        val current = _sessions.value[normalized]
-            ?: if (ThemeStoreDefaults.isBuiltInBaseUrl(normalized)) {
-                // Auto-selection may point at another mirror than the one used to
-                // sign in. Reuse that session and route requests to the current
-                // (fastest) mirror.
-                ThemeStoreDefaults.BASE_URLS
-                    .asSequence()
-                    .mapNotNull { ThemeStoreRepository.normalizeBaseUrl(it) }
-                    .filter { it != normalized }.firstNotNullOfOrNull { _sessions.value[it] }
-                    ?.copy(baseUrl = normalized)
-            } else {
-                null
-            }
-        return current?.takeIf { it.token.isNotBlank() }
+        return _sessions.value[normalized]?.takeIf { it.token.isNotBlank() }
     }
 
     private fun requireSession(baseUrl: String): AccountSession =
