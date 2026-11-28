@@ -1,9 +1,10 @@
-# Build the VeilSU hello KPM skeleton (LKM-style) for android17-6.18.
+# Build the VeilSU hello KPM skeleton (LKM-style) for android16-6.12.
 # Mirrors the aarch64 part of veilsu.yml's build-lkm job: same DDK image,
 # same KDIR preparation, same strip step. Only the target KMI is fixed to
-# android17-6.18 (OnePlus 15 / Android 17); extend the matrix if the
+# android16-6.12 (OnePlus 15, kernel 6.12.58); extend the matrix if the
 # skeleton grows KMI-specific code.
 name: Build VeilSU hello KPM
+
 
 on:
   push:
@@ -18,14 +19,15 @@ on:
       - ".github/workflows/kpm-hello.yml"
   workflow_dispatch:
 
+
 jobs:
   build-hello-kpm:
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/ylarod/ddk-min:android17-6.18-20260828
+      image: ghcr.io/ylarod/ddk-min:android16-6.12-20260828
       options: --privileged
     env:
-      KMI: android17-6.18
+      KMI: android16-6.12
     steps:
       - uses: actions/checkout@v4
         with:
@@ -52,5 +54,5 @@ jobs:
           llvm-strip -d "${GITHUB_WORKSPACE}/out/veilsu_hello.ko"
       - uses: actions/upload-artifact@v4
         with:
-          name: veilsu-hello-android17-6.18
+          name: veilsu-hello-android16-6.12
           path: out/veilsu_hello.ko
