@@ -540,6 +540,16 @@
     <string name="install_kpm_operation">KPM operation</string>
     <string name="install_kpm_summary">Keep, apply, or undo the kernel KPM patch.</string>
     <string name="install_kpm_inactive_unsupported">Additional KPM operations currently support direct installation to the current slot only. Disable KPM before installing to the inactive slot.</string>
+    <string name="install_kpm_kernel_module">Install as kernel module</string>
+    <string name="install_kpm_kernel_module_summary">Load now; ksud reloads it each boot.</string>
+    <string name="install_kpm_module_actions_summary">Test load: this boot only.\nRemove load: always deletes every .ko and .kpm boot copy under /data/adb/kpm, even if no KPM module is loaded or live unloading fails; reboot if the module stays busy.</string>
+    <string name="install_kpm_test_load">Test load</string>
+    <string name="install_kpm_remove_load">Remove load</string>
+    <string name="install_kpm_module_bundled">Bundled: %1$s</string>
+    <string name="install_kpm_module_bundled_missing">No bundled kpm.ko; select a .ko</string>
+    <string name="install_kpm_module_custom">Select kpm.ko</string>
+    <string name="install_kpm_module_clear">Clear custom .ko</string>
+    <string name="install_kpm_module_unavailable">No bundled kpm.ko; select a .ko first.</string>
     <string name="kernel_flashing">Kernel Flashing</string>
     <string name="horizon_kernel">AnyKernel3 Kernel</string>
     <string name="horizon_kernel_summary">Flash AnyKernel3 format kernel zip</string>
