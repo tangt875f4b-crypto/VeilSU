@@ -3,6 +3,7 @@ package me.veilsu.manager.ui.screen.install
 import  androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -11,16 +12,21 @@ import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.DriveFileMove
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.SdStorage
 import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import me.veilsu.manager.ui.util.customText
@@ -52,6 +58,7 @@ import me.veilsu.manager.ui.component.material.SegmentedCheckboxItem
 import me.veilsu.manager.ui.component.material.IconTile
 import me.veilsu.manager.ui.component.material.SegmentedColumn
 import me.veilsu.manager.ui.component.material.SegmentedDropdownItem
+import me.veilsu.manager.ui.component.material.SegmentedItemContainer
 import me.veilsu.manager.ui.component.material.SegmentedListItem
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.BorderStroke
@@ -64,6 +71,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import me.veilsu.manager.ui.component.material.SegmentedTextField
 import me.veilsu.manager.ui.component.material.SnackBarHost
 import me.veilsu.manager.ui.component.material.TopBarBackButton
@@ -192,7 +200,7 @@ internal fun InstallScreenMaterial(
                 SegmentedColumn(
                     modifier = Modifier.padding(horizontal = 16.dp),
                 ) {
-                    item {
+                    item(visible = !uiState.rootAvailable || !uiState.kpmKernelModuleEnabled) {
                         SegmentedDropdownItem(
                             title = stringResource(R.string.install_kpm_operation),
                             summary = stringResource(R.string.install_kpm_summary),
@@ -201,7 +209,51 @@ internal fun InstallScreenMaterial(
                             onItemSelected = { actions.onKpmOptionChange(KpmPatchOption.entries[it]) },
                         )
                     }
-                    item(visible = uiState.canSelectKpmBoot) {
+                    item(visible = uiState.rootAvailable && uiState.kpmKernelModuleAvailable) {
+                        SegmentedCheckboxItem(
+                            title = stringResource(R.string.install_kpm_kernel_module),
+                            summary = stringResource(R.string.install_kpm_kernel_module_summary),
+                            checked = uiState.kpmKernelModuleEnabled,
+                            onCheckedChange = actions.onToggleKpmKernelModule,
+                        )
+                    }
+
+                    item(
+                        visible = uiState.rootAvailable &&
+                            uiState.kpmKernelModuleAvailable &&
+                            uiState.kpmKernelModuleEnabled,
+                    ) {
+                        val custom = uiState.kpmKernelModuleUri
+
+                        val summary = when {
+                            custom != null -> custom.lastPathSegment.orEmpty()
+                            uiState.kpmBundledModuleAvailable ->
+                                stringResource(R.string.install_kpm_module_bundled, "kpm-${uiState.currentKmi}.ko")
+                            else -> stringResource(R.string.install_kpm_module_bundled_missing)
+                        }
+
+                        SegmentedListItem(
+                            headlineContent = { Text(stringResource(R.string.install_kpm_module_custom)) },
+                            supportingContent = { Text(summary) },
+                            onClick = actions.onSelectKpmKernelModule,
+                            trailingContent = {
+                                if (custom != null) {
+                                    IconButton(onClick = actions.onClearKpmKernelModule) {
+                                        Icon(Icons.Filled.Close, stringResource(R.string.install_kpm_module_clear))
+                                    }
+                                }
+                            },
+                        )
+                    }
+
+                    item(visible = uiState.rootAvailable && uiState.kpmKernelModuleAvailable) {
+                        KpmModuleActionCard(
+                            onTestLoad = actions.onTestKpmKernelModule,
+                            onRemoveLoad = actions.onRemoveKpmKernelModule,
+                        )
+                    }
+
+                    item(visible = uiState.rootAvailable && uiState.canSelectKpmBoot) {
                         SegmentedListItem(
                             headlineContent = { Text(stringResource(R.string.install_kpm_manual)) },
                             supportingContent = {
@@ -220,7 +272,7 @@ internal fun InstallScreenMaterial(
                             onClick = actions.onToggleKpmBoot,
                         )
                     }
-                    item(visible = uiState.canSelectKpmBoot && uiState.kpmBootExpanded) {
+                    item(visible = uiState.rootAvailable && uiState.canSelectKpmBoot && uiState.kpmBootExpanded) {
                         SegmentedListItem(
                             headlineContent = { Text(stringResource(R.string.select_file)) },
                             supportingContent = { uiState.kpmBootUri?.let { Text(it.lastPathSegment.orEmpty()) } },
@@ -366,6 +418,87 @@ internal fun InstallScreenMaterial(
             ) { Text(stringResource(R.string.install_next)) }
         }
     }
+}
+
+/**
+ * Kernel-module actions live in their own segmented card. A bare button row inside a
+ * segmented column has no surface of its own, so its buttons used to float over the page
+ * background; matching M3 Expressive pill buttons now sit on the card together.
+ */
+@Composable
+private fun KpmModuleActionCard(
+    onTestLoad: () -> Unit,
+    onRemoveLoad: () -> Unit,
+) {
+
+    SegmentedItemContainer {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Text(
+                text = stringResource(R.string.install_kpm_module_actions_summary),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+
+                FilledTonalButton(
+                    onClick = onTestLoad,
+                    modifier = Modifier.weight(1f),
+                    shapes = ButtonDefaults.shapes(),
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.PlayArrow,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                    )
+
+                    Spacer(Modifier.size(8.dp))
+
+                    Text(
+                        text = stringResource(R.string.install_kpm_test_load),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+
+                FilledTonalButton(
+                    onClick = onRemoveLoad,
+                    modifier = Modifier.weight(1f),
+                    shapes = ButtonDefaults.shapes(),
+                    colors = ButtonDefaults.filledTonalButtonColors(
+                        containerColor = MaterialTheme.colorScheme.errorContainer,
+                        contentColor = MaterialTheme.colorScheme.onErrorContainer,
+                    ),
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Delete,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                    )
+
+                    Spacer(Modifier.size(8.dp))
+
+                    Text(
+                        text = stringResource(R.string.install_kpm_remove_load),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+
+            }
+
+        }
+
+    }
+
 }
 
 @Composable
