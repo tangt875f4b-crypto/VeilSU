@@ -1,5 +1,6 @@
 package me.veilsu.manager.ui.screen.themestore
 
+import android.annotation.SuppressLint
 import android.app.Application
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
@@ -23,6 +24,9 @@ import me.veilsu.manager.data.model.ThemeStoreEntry
 import me.veilsu.manager.data.repository.AccountRepository
 import me.veilsu.manager.data.repository.SettingsRepositoryImpl
 import me.veilsu.manager.data.repository.ThemeCatalogLoad
+import me.veilsu.manager.data.repository.ThemeDownloadInput
+import me.veilsu.manager.data.repository.ThemeDownloadRecord
+import me.veilsu.manager.data.repository.ThemeDownloadStore
 import me.veilsu.manager.data.repository.ThemeStoreDefaults
 import me.veilsu.manager.data.repository.ThemeStoreHistoryEntry
 import me.veilsu.manager.data.repository.ThemeStoreHistoryKind
@@ -32,10 +36,15 @@ import me.veilsu.manager.data.repository.ThemeStoreSubmission
 import me.veilsu.manager.data.repository.ThemeStoreUnauthorizedException
 import me.veilsu.manager.ui.util.ThemePackageStorage
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withLock
@@ -43,6 +52,7 @@ import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -53,6 +63,7 @@ import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
 import androidx.core.graphics.scale
+import kotlinx.coroutines.cancel
 import kotlin.time.Duration.Companion.milliseconds
 
 data class ThemeStoreSource(
@@ -101,6 +112,24 @@ data class ThemeStoreItem(
     val source: ThemeStoreSource,
 ) {
     val key: String get() = "${source.id}:${entry.id}"
+
+    /**
+     * The searchable body — everything except the localized adaptive/dynamic labels —
+     * lowercased once at construction so [matchesSearch] never rebuilds or re-lowercases the
+     * description-heavy text on every keystroke.
+     */
+    internal val searchBody: String = buildString {
+        append(entry.id).append(' ')
+        append(entry.name).append(' ')
+        append(entry.author).append(' ')
+        append(entry.description).append(' ')
+        append(entry.tags.joinToString(" ")).append(' ')
+        append(source.name).append(' ')
+        append(source.baseUrl)
+    }.lowercase(Locale.ROOT)
+
+    /** Compact form of [searchBody], for the diacritic / full-width fallback path. */
+    internal val searchBodyCompact: String = searchBody.searchKey()
 }
 
 data class DownloadedTheme(
@@ -237,6 +266,9 @@ data class ThemeStoreUiState(
     val messagesError: String? = null,
     val messagesSending: Boolean = false,
     val messagesRetentionDays: Long = 0L,
+    /** Packages persisted by [ThemeDownloadStore] for the "My downloads" screen. */
+    val downloads: List<ThemeDownloadRecord> = emptyList(),
+    val downloadsLoading: Boolean = false,
 )
 
 private data class PreparedThemeUpload(
@@ -260,6 +292,19 @@ class ThemeStoreViewModel(application: Application) : AndroidViewModel(applicati
         const val AVATAR_MAX_EDGE = 256
         const val SCREENSHOT_MAX_EDGE = 1080
         const val WEBP_QUALITY = 80
+        /** Cap on covers refetched when the downloads list opens without thumbnails. */
+        const val MAX_PREVIEW_BACKFILL = 12
+        /** How long after the last tap before queued history is flushed to the account. */
+        const val HISTORY_FLUSH_DELAY_MS = 1500L
+        /**
+         * Gap between silent catalog revalidations. Entering the store already triggers one
+         * immediately; after that the store answers 304 for an unchanged catalog and a few
+         * bytes for unflushed counters, so a tick costs a pair of tiny requests and a
+         * publish shows up within a minute.
+         */
+        private val CATALOG_WATCH_INTERVAL = 60_000L.milliseconds
+        /** How long an entry-triggered sync waits for the first paint or full load. */
+        private val ENTER_SYNC_WAIT = 15_000L.milliseconds
         val THEME_ID_PATTERN = Regex("^[a-z0-9][a-z0-9-]{0,63}$")
         val AUTHOR_ID_PATTERN = Regex("^[A-Za-z0-9._~-]{16,128}$")
     }
@@ -268,11 +313,18 @@ class ThemeStoreViewModel(application: Application) : AndroidViewModel(applicati
     private val settings = SettingsRepositoryImpl()
     private val account = AccountRepository(application)
     private val consentStore = ThemeStoreConsentStore(application)
+    private val downloadStore = ThemeDownloadStore(application)
     private val initialConsent = consentStore.read()
     private var historyJob: kotlinx.coroutines.Job? = null
     private var editPrefillJob: kotlinx.coroutines.Job? = null
     private var followsJob: kotlinx.coroutines.Job? = null
     private var loadJob: kotlinx.coroutines.Job? = null
+    private var catalogWatcher: kotlinx.coroutines.Job? = null
+    private var quietSyncJob: kotlinx.coroutines.Job? = null
+    /** (baseUrl, kind, themeId) events awaiting a flush; duplicates collapse. */
+    private val pendingHistory = LinkedHashSet<Triple<String, String, String>>()
+    private var historyFlushJob: kotlinx.coroutines.Job? = null
+    private var commentsJob: kotlinx.coroutines.Job? = null
     private var preferencesPushJob: kotlinx.coroutines.Job? = null
     private var preferencesPullJob: kotlinx.coroutines.Job? = null
     private var localPreferenceRevision = 0L
@@ -290,19 +342,190 @@ class ThemeStoreViewModel(application: Application) : AndroidViewModel(applicati
 
     init {
         if (initialConsent != null) {
-            load()
-        }
-        viewModelScope.launch {
-            while (true) {
-                kotlinx.coroutines.delay((10 * 60 * 1000L).milliseconds)
-                if (!_uiState.value.needsConsent) {
+            viewModelScope.launch(Dispatchers.IO) {
+                if (!paintCachedCatalog()) {
+                    // First visit of this installation (or after clearing app data):
+                    // nothing on disk yet, so this is the one full download.
                     load()
+                } else {
+                    // Paint is already on screen; pull the web R18 choice and then apply
+                    // whatever changed since that catalog was stored. No spinner involved.
+                    withTimeoutOrNull(5_000.milliseconds) {
+                        preferencesSyncLock.withLock {
+                            syncPreferencesNow(_uiState.value.accounts, force = false)
+                        }
+                    }
+                    // Shares the deduplicated entry-sync path, so a screen that already
+                    // triggered one does not fetch the catalog twice.
+                    syncOnEnter()
                 }
             }
         }
+        startCatalogWatcher()
         viewModelScope.launch(Dispatchers.IO) {
             repository.cleanupStaleCache()
         }
+    }
+
+    /**
+     * Runs one silent catalog sync. The store screen calls this every time it appears, so
+     * entering the screen always shows current numbers even inside the one-minute window.
+     * Deduplicated: a second call while one is in flight is ignored.
+     *
+     * The request waits for the first paint or the first full load to settle instead of
+     * giving up: the screen appears before either finishes, and dropping the sync there
+     * would leave the numbers stale until the next watcher tick.
+     */
+    fun syncOnEnter() {
+        if (_uiState.value.needsConsent) return
+        if (quietSyncJob?.isActive == true) return
+        quietSyncJob = viewModelScope.launch(Dispatchers.IO) {
+            withTimeoutOrNull(ENTER_SYNC_WAIT) {
+                uiState.first { it.loaded && !it.loading && !it.refreshing }
+            }
+            runCatching { syncCatalogQuietly() }
+        }
+    }
+
+    /**
+     * Puts the stored catalog on screen without any request.
+     *
+     * Returns false when this installation has never completed a catalog download, in
+     * which case the caller falls back to the visible first load. Adult rows are withheld
+     * for signed-in users until the web preference arrives: the local consent flag may be
+     * stale, and this paints before that pull runs.
+     */
+    private suspend fun paintCachedCatalog(): Boolean {
+        account.reload()
+        val sources = configuredSources()
+        if (sources.isEmpty()) return false
+        val accounts = accountsFor(sources)
+        val cached = sources.mapNotNull { source ->
+            repository.cachedCatalog(source.baseUrl)?.let { source to it }
+        }
+        if (cached.isEmpty()) return false
+        val holdR18 = accounts.isNotEmpty()
+        val items = buildItems(sources, cached).filterNot { holdR18 && it.entry.r18 }
+        _uiState.update {
+            it.copy(
+                loaded = true,
+                loading = false,
+                refreshing = false,
+                items = items,
+                sources = sources,
+                accounts = accounts,
+                fromCache = true,
+                maintenance = isMaintenance(cached),
+                failedSources = 0,
+                unauthorized = false,
+                error = false,
+                needsConfig = false,
+            )
+        }
+        refreshFollows(accounts)
+        return true
+    }
+
+    /**
+     * First open fetches the whole list once; after that the store only hot-updates.
+     *
+     * Each tick revalidates the catalog (304 in the common case) and folds in the
+     * store's unflushed download deltas, then swaps [ThemeStoreUiState.items] only when
+     * something actually changed. Nothing here touches `loading`/`refreshing`, so the
+     * update never shows a refresh indicator or blanks the grid — the list simply
+     * gains new themes or new numbers in place.
+     */
+    private fun startCatalogWatcher() {
+        catalogWatcher?.cancel()
+        catalogWatcher = viewModelScope.launch(Dispatchers.IO) {
+            while (isActive) {
+                delay(CATALOG_WATCH_INTERVAL)
+                runCatching { syncCatalogQuietly() }
+            }
+        }
+    }
+
+    private suspend fun syncCatalogQuietly() {
+        val state = _uiState.value
+        if (state.needsConsent || state.needsConfig) return
+        // A foreground load or an explicit refresh owns the state while it runs.
+        if (!state.loaded || state.loading || state.refreshing) return
+        val sources = state.sources
+        if (sources.isEmpty()) return
+
+        val results = coroutineScope {
+            sources.map { source -> async { loadSource(source) } }.awaitAll()
+        }
+        val catalogs = results.mapNotNull { (source, result) ->
+            result.getOrNull()?.let { source to it }
+        }
+        // A transient failure keeps the list that is already on screen.
+        if (catalogs.isEmpty()) return
+
+        val items = buildItems(sources, catalogs, state.items.associateBy { it.key })
+        val maintenance = isMaintenance(catalogs)
+        val fromCache = catalogs.any { it.second.fromCache }
+        if (items == state.items &&
+            maintenance == state.maintenance &&
+            fromCache == state.fromCache
+        ) {
+            return
+        }
+        _uiState.update { current ->
+            // A foreground load may have started while the requests were in flight.
+            if (current.loading || current.refreshing) current
+            else current.copy(
+                items = items,
+                maintenance = maintenance,
+                fromCache = fromCache,
+                failedSources = results.size - catalogs.size,
+                error = false,
+            )
+        }
+    }
+
+    /**
+     * Catalog rows in source order, without the maintenance-flagged stores.
+     *
+     * Rows that are unchanged keep their previous [ThemeStoreItem] instance: the
+     * constructor builds a lowercased search body per theme, and rebuilding a few
+     * hundred of those every poll is the one part of a hot update that could cost a
+     * frame. Reusing the instance also keeps the grid's keys and content identical, so
+     * only rows whose numbers moved are redrawn.
+     */
+    private fun buildItems(
+        sources: List<ThemeStoreSource>,
+        catalogs: List<Pair<ThemeStoreSource, ThemeCatalogLoad>>,
+        previous: Map<String, ThemeStoreItem> = emptyMap(),
+    ): List<ThemeStoreItem> {
+        val sourceOrder = sources.mapIndexed { index, source -> source.id to index }.toMap()
+        return catalogs
+            .filterNot { it.second.catalog.maintenance }
+            .flatMap { (source, load) ->
+                load.catalog.themes.map { entry ->
+                    val key = "${source.id}:${entry.id}"
+                    previous[key]?.takeIf { it.entry == entry && it.source == source }
+                        ?: ThemeStoreItem(entry, source)
+                }
+            }
+            .distinctBy { it.key }
+            .sortedWith(
+                compareBy(
+                    { sourceOrder[it.source.id] ?: Int.MAX_VALUE },
+                    { it.entry.name.lowercase() },
+                ),
+            )
+    }
+
+    /**
+     * True when every store that answered reports maintenance. Cached catalogs are only
+     * consulted when nothing live came back, so a stale copy cannot mask a live store.
+     */
+    private fun isMaintenance(catalogs: List<Pair<ThemeStoreSource, ThemeCatalogLoad>>): Boolean {
+        if (catalogs.isEmpty()) return false
+        val live = catalogs.filterNot { it.second.fromCache }
+        val considered = live.ifEmpty { catalogs }
+        return considered.all { it.second.catalog.maintenance }
     }
 
     fun load() {
@@ -362,23 +585,8 @@ class ThemeStoreViewModel(application: Application) : AndroidViewModel(applicati
                 .awaitAll()
             val successes = results.filter { it.second.isSuccess }
             val catalogs = successes.map { (source, result) -> source to result.getOrThrow() }
-            val sourceOrder = sources.mapIndexed { index, source -> source.id to index }.toMap()
-            val liveCatalogs = catalogs.filterNot { it.second.fromCache }
-            val maintenanceCatalogs = liveCatalogs.ifEmpty { catalogs }
-            val maintenance = maintenanceCatalogs.isNotEmpty() &&
-                maintenanceCatalogs.all { it.second.catalog.maintenance }
-            val items = catalogs
-                .filterNot { it.second.catalog.maintenance }
-                .flatMap { (source, load) ->
-                    load.catalog.themes.map { ThemeStoreItem(it, source) }
-                }
-                .distinctBy { it.key }
-                .sortedWith(
-                    compareBy(
-                        { sourceOrder[it.source.id] ?: Int.MAX_VALUE },
-                        { it.entry.name.lowercase() },
-                    ),
-                )
+            val maintenance = isMaintenance(catalogs)
+            val items = buildItems(sources, catalogs, current.items.associateBy { it.key })
             val failures = results.size - successes.size
             val unauthorized = successes.isEmpty() &&
                 results.any { it.second.exceptionOrNull() is ThemeStoreUnauthorizedException }
@@ -401,40 +609,17 @@ class ThemeStoreViewModel(application: Application) : AndroidViewModel(applicati
         }
     }
 
-    /**
-     * Loads one source, walking the regional mirror chain (primary → secondary →
-     * tertiary) until one answers without a cached body. The returned source
-     * carries the host that answered, so downloads and uploads stay on it.
-     */
+    fun reloadSources() {
+        if (_uiState.value.needsConsent) return
+        loadJob?.cancel()
+        loadJob = null
+        _uiState.update { it.copy(loading = false, refreshing = false) }
+        load()
+    }
+
     private suspend fun loadSource(
         source: ThemeStoreSource,
-    ): Pair<ThemeStoreSource, Result<ThemeCatalogLoad>> {
-        val first = fetchSource(source, source.baseUrl)
-        if (first.second.getOrNull()?.fromCache == false) {
-            ThemeStoreDefaults.reportReachable(source.baseUrl)
-            return first
-        }
-        // An authentication failure is not a connectivity problem; retrying on
-        // another mirror would hide the real error.
-        if (first.second.exceptionOrNull() is ThemeStoreUnauthorizedException) return first
-        var previousBase = source.baseUrl
-        var nextBase = ThemeStoreDefaults.fallbackBaseUrl(previousBase)
-        var best = first
-        while (nextBase != null) {
-            // Mark only the mirror that just failed so the next launch starts from
-            // the top of the chain again once its cooldown expires.
-            ThemeStoreDefaults.reportUnreachable(previousBase)
-            val attempt = fetchSource(source, nextBase)
-            if (attempt.second.getOrNull()?.fromCache == false) {
-                ThemeStoreDefaults.reportReachable(nextBase)
-                return attempt
-            }
-            if (best.second.isSuccess.not() && attempt.second.isSuccess) best = attempt
-            previousBase = nextBase
-            nextBase = ThemeStoreDefaults.fallbackBaseUrl(nextBase)
-        }
-        return best
-    }
+    ): Pair<ThemeStoreSource, Result<ThemeCatalogLoad>> = fetchSource(source, source.baseUrl)
 
     private suspend fun fetchSource(
         source: ThemeStoreSource,
@@ -734,27 +919,57 @@ class ThemeStoreViewModel(application: Application) : AndroidViewModel(applicati
             adaptive = item.themeAdaptive,
         )
 
-    /** History lives on the account: record every view/download for the matching source. */
+    /** History lives on the account; queue the event and let the debounced flush send it. */
     fun recordView(item: ThemeStoreItem) {
         if (!hasAccountFor(item.source.baseUrl)) return
-        viewModelScope.launch {
-            account.recordThemeHistory(
-                item.source.baseUrl,
-                ThemeStoreHistoryKind.VIEWED.apiKind,
-                item.entry.id,
-            )
-        }
+        queueHistory(item.source.baseUrl, ThemeStoreHistoryKind.VIEWED.apiKind, item.entry.id)
     }
 
     private fun recordDownload(item: ThemeStoreItem) {
         if (!hasAccountFor(item.source.baseUrl)) return
-        viewModelScope.launch {
-            account.recordThemeHistory(
-                item.source.baseUrl,
-                ThemeStoreHistoryKind.DOWNLOADED.apiKind,
-                item.entry.id,
-            )
+        queueHistory(item.source.baseUrl, ThemeStoreHistoryKind.DOWNLOADED.apiKind, item.entry.id)
+    }
+
+    /**
+     * The server records one event per request, so the store buffers `(source, kind, theme)`
+     * events and flushes them shortly after the user stops browsing instead of firing a
+     * fire-and-forget POST for every tap. Duplicates collapse, and the flush itself issues at
+     * most one request at a time.
+     */
+    private fun queueHistory(baseUrl: String, kind: String, themeId: String) {
+        if (!pendingHistory.add(Triple(baseUrl, kind, themeId))) return
+        historyFlushJob?.cancel()
+        historyFlushJob = viewModelScope.launch {
+            delay(HISTORY_FLUSH_DELAY_MS.milliseconds)
+            flushHistoryBuffer()
         }
+    }
+
+    /** Drains the buffer and records each event sequentially, one request at a time. */
+    private suspend fun flushHistoryBuffer() {
+        val batch = pendingHistory.toList()
+        if (batch.isEmpty()) return
+        pendingHistory.clear()
+        for ((baseUrl, kind, themeId) in batch) {
+            runCatching { account.recordThemeHistory(baseUrl, kind, themeId) }
+        }
+    }
+
+    @SuppressLint("EmptySuperCall")
+    override fun onCleared() {
+        super.onCleared()
+        historyFlushJob?.cancel()
+        val batch = pendingHistory.toList()
+        pendingHistory.clear()
+        if (batch.isEmpty()) return
+        // viewModelScope is cancelled here, so finish the queued history on an app-lifetime
+        // scope. The batch is bounded, so the scope carries no open-ended work.
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+        scope.launch {
+            for ((baseUrl, kind, themeId) in batch) {
+                runCatching { account.recordThemeHistory(baseUrl, kind, themeId) }
+            }
+        }.invokeOnCompletion { scope.coroutineContext.cancel() }
     }
 
     fun refreshHistory() {
@@ -907,7 +1122,7 @@ class ThemeStoreViewModel(application: Application) : AndroidViewModel(applicati
             var meter: TransferSpeedMeter? = null
             val telemetryLock = Any()
             var lastTelemetryAt = 0L
-            repository.downloadTheme(
+            val downloadResult = repository.downloadTheme(
                 entry = item.entry,
                 baseUrl = item.source.baseUrl,
                 token = item.source.token,
@@ -944,37 +1159,40 @@ class ThemeStoreViewModel(application: Application) : AndroidViewModel(applicati
                         }
                     }
                 },
-            ).fold(
-                onSuccess = { file ->
-                    _uiState.update {
-                        it.copy(
-                            downloadingKey = null,
-                            downloadProgress = 1f,
-                            downloadTransferredBytes = item.entry.size,
-                            downloadTotalBytes = item.entry.size,
-                            downloadSpeedBytesPerSecond = 0L,
-                            downloadEtaSeconds = null,
-                            downloaded = DownloadedTheme(item, file, trial),
-                            verifiedThemeKey = item.key,
-                        )
-                    }
-                    recordDownload(item)
-                },
-                onFailure = {
-                    _uiState.update {
-                        it.copy(
-                            downloadingKey = null,
-                            downloadTrial = false,
-                            downloadProgress = 0f,
-                            downloadTransferredBytes = 0L,
-                            downloadTotalBytes = 0L,
-                            downloadSpeedBytesPerSecond = 0L,
-                            downloadEtaSeconds = null,
-                            downloadFailed = true,
-                        )
-                    }
-                },
             )
+            val downloadedFile = downloadResult.getOrNull()
+            if (downloadedFile != null) {
+                // Copy into the persistent library before the import dialog consumes (and
+                // deletes) the cache file, then surface the package to the caller.
+                val record = persistDownload(item, downloadedFile)
+                _uiState.update {
+                    it.copy(
+                        downloadingKey = null,
+                        downloadProgress = 1f,
+                        downloadTransferredBytes = item.entry.size,
+                        downloadTotalBytes = item.entry.size,
+                        downloadSpeedBytesPerSecond = 0L,
+                        downloadEtaSeconds = null,
+                        downloaded = DownloadedTheme(item, downloadedFile, trial),
+                        verifiedThemeKey = item.key,
+                    )
+                }
+                recordDownload(item)
+                if (record != null) fetchDownloadPreview(item, record.key)
+            } else {
+                _uiState.update {
+                    it.copy(
+                        downloadingKey = null,
+                        downloadTrial = false,
+                        downloadProgress = 0f,
+                        downloadTransferredBytes = 0L,
+                        downloadTotalBytes = 0L,
+                        downloadSpeedBytesPerSecond = 0L,
+                        downloadEtaSeconds = null,
+                        downloadFailed = true,
+                    )
+                }
+            }
         }
     }
 
@@ -985,6 +1203,151 @@ class ThemeStoreViewModel(application: Application) : AndroidViewModel(applicati
     fun clearDownloadError() {
         _uiState.update { it.copy(downloadFailed = false) }
     }
+
+    /**
+     * Copies a freshly downloaded package into the persistent download library. This runs before
+     * the package is handed to the import dialog, which deletes the cache file it receives.
+     */
+    private suspend fun persistDownload(item: ThemeStoreItem, file: File): ThemeDownloadRecord? {
+        val entry = item.entry
+        val input = ThemeDownloadInput(
+            key = item.key,
+            themeId = entry.id,
+            sourceId = item.source.id,
+            baseUrl = item.source.baseUrl,
+            name = entry.name,
+            author = entry.author,
+            version = entry.version,
+            formatVersion = entry.formatVersion,
+            size = entry.size,
+            sha256 = entry.sha256,
+            adaptive = item.isAdaptiveTheme(),
+            dynamic = item.isDynamicTheme(),
+            r18 = item.isR18Theme(),
+            updatedAt = entry.updatedAt,
+            tags = entry.tags,
+            previewPath = entry.previewPath.ifBlank {
+                entry.screenshotPaths.firstOrNull().orEmpty()
+            },
+        )
+        val record = runCatching { downloadStore.save(input, file) }.getOrNull() ?: return null
+        _uiState.update { current ->
+            current.copy(
+                downloads = (listOf(record) + current.downloads.filterNot { it.key == record.key })
+                    .sortedByDescending { it.downloadedAt },
+            )
+        }
+        return record
+    }
+
+    /** Fetches the cover after the package is already usable, so the list can render offline. */
+    private fun fetchDownloadPreview(item: ThemeStoreItem, key: String) {
+        val entry = item.entry
+        val previewUrl = ThemeStoreRepository.assetUrl(item.source.baseUrl, entry.previewPath)
+            ?: entry.screenshotPaths.firstOrNull()?.let { path ->
+                ThemeStoreRepository.assetUrl(item.source.baseUrl, path)
+            }
+            ?: return
+        viewModelScope.launch {
+            // Resolve the device credential first: mirrors reject an empty header even though
+            // the repository can refresh a cached one lazily.
+            val token = repository.accessToken(item.source.baseUrl, item.source.token)
+                .getOrNull()
+                .orEmpty()
+            val bytes = runCatching {
+                repository.fetchPreviewBytes(previewUrl, token)
+            }.getOrNull() ?: return@launch
+            val updated = runCatching { downloadStore.attachPreview(key, bytes) }.getOrNull()
+                ?: return@launch
+            _uiState.update { current ->
+                current.copy(
+                    downloads = current.downloads.map {
+                        if (it.key == updated.key) updated else it
+                    },
+                )
+            }
+        }
+    }
+
+    fun refreshDownloads() {
+        if (_uiState.value.downloadsLoading) return
+        _uiState.update { it.copy(downloadsLoading = true) }
+        viewModelScope.launch {
+            val records = runCatching { downloadStore.list() }.getOrDefault(emptyList())
+            _uiState.update { it.copy(downloads = records, downloadsLoading = false) }
+            backfillDownloadPreviews(records)
+        }
+    }
+
+    /**
+     * Records written by older builds (or by a failed cover request) have no local thumbnail.
+     * Refetch the covers that are still reachable, one at a time, so the list fills in without
+     * blocking the store or hammering the mirror.
+     */
+    private fun backfillDownloadPreviews(records: List<ThemeDownloadRecord>) {
+        val missing = records.filter { downloadPreviewFile(it) == null }
+        if (missing.isEmpty()) return
+        viewModelScope.launch {
+            val sources = withContext(Dispatchers.IO) { configuredSources() }
+            val catalog = _uiState.value.items
+            // Two covers at a time: enough to fill the list promptly without fanning out a
+            // dozen requests at once (mirrors the image-compression semaphore in this file).
+            val previewSemaphore = Semaphore(2)
+            for ((key, themeId, sourceId, baseUrl1, _, _, _, _, _, _, _, _, previewPath) in missing.take(MAX_PREVIEW_BACKFILL)) {
+                previewSemaphore.withPermit {
+                    val source = sources.firstOrNull {
+                        it.id == sourceId ||
+                            it.baseUrl.trimEnd('/') == baseUrl1.trimEnd('/')
+                    } ?: sources.firstOrNull()
+                    val item = catalog.firstOrNull {
+                        it.entry.id == themeId &&
+                            it.source.baseUrl.trimEnd('/') == baseUrl1.trimEnd('/')
+                    }
+                    val baseUrl = baseUrl1.ifBlank { source?.baseUrl.orEmpty() }
+                    val path = previewPath.ifBlank { item?.entry?.previewPath.orEmpty() }
+                        .ifBlank { item?.entry?.screenshotPaths?.firstOrNull().orEmpty() }
+                    if (baseUrl.isBlank() || path.isBlank()) return@withPermit
+                    val url = ThemeStoreRepository.assetUrl(baseUrl, path) ?: return@withPermit
+                    val token = repository.accessToken(baseUrl, source?.token.orEmpty())
+                        .getOrNull()
+                        .orEmpty()
+                    val bytes = runCatching { repository.fetchPreviewBytes(url, token) }
+                        .getOrNull() ?: return@withPermit
+                    val updated = runCatching { downloadStore.attachPreview(key, bytes) }
+                        .getOrNull() ?: return@withPermit
+                    _uiState.update { current ->
+                        current.copy(
+                            downloads = current.downloads.map {
+                                if (it.key == updated.key) updated else it
+                            },
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    fun deleteDownloads(keys: Set<String>) {
+        if (keys.isEmpty()) return
+        viewModelScope.launch {
+            val remaining = runCatching { downloadStore.delete(keys) }
+                .getOrDefault(_uiState.value.downloads)
+            _uiState.update { it.copy(downloads = remaining) }
+        }
+    }
+
+    fun clearDownloads() {
+        viewModelScope.launch {
+            runCatching { downloadStore.clear() }
+            _uiState.update { it.copy(downloads = emptyList()) }
+        }
+    }
+
+    /** Cached package of [record]; the caller applies it through the theme import dialog. */
+    fun downloadFile(record: ThemeDownloadRecord): File = downloadStore.fileFor(record)
+
+    /** Locally cached cover of [record] for the downloads list. */
+    fun downloadPreviewFile(record: ThemeDownloadRecord): File? = downloadStore.previewFor(record)
 
     fun submit(input: ThemeStoreUploadInput, source: ThemeStoreSource) {
         if (_uiState.value.submitting) return
@@ -1360,19 +1723,25 @@ class ThemeStoreViewModel(application: Application) : AndroidViewModel(applicati
     
     fun loadComments(item: ThemeStoreItem, force: Boolean = false) {
         val current = _uiState.value
-        if (current.commentsLoading && !force) return
-        if (!force && current.commentsThemeKey == item.key && current.commentsError == null) return
+        val sameTheme = current.commentsThemeKey == item.key
+        if (current.commentsLoading && sameTheme && !force) return
+        if (!force && sameTheme && current.commentsError == null) return
+        commentsJob?.cancel()
         account.reload()
         val signedIn = account.sessionFor(item.source.baseUrl) != null
         _uiState.update {
+            val keepExisting = it.commentsThemeKey == item.key
             it.copy(
                 commentsThemeKey = item.key,
+                comments = if (keepExisting) it.comments else emptyList(),
                 commentsLoading = true,
                 commentsError = null,
-                commentReplyTarget = if (signedIn) it.commentReplyTarget else null,
+                commentsIsThemeAuthor = keepExisting && it.commentsIsThemeAuthor,
+                commentsIsAdmin = keepExisting && it.commentsIsAdmin,
+                commentReplyTarget = if (keepExisting && signedIn) it.commentReplyTarget else null,
             )
         }
-        viewModelScope.launch {
+        commentsJob = viewModelScope.launch {
             account.comments(item.source.baseUrl, item.entry.id).fold(
                 onSuccess = { response ->
                     _uiState.update { state ->
@@ -2014,20 +2383,14 @@ class ThemeStoreViewModel(application: Application) : AndroidViewModel(applicati
 
     private fun configuredSources(): List<ThemeStoreSource> {
         val result = mutableListOf<ThemeStoreSource>()
-        val builtInBase = ThemeStoreRepository.normalizeBaseUrl(ThemeStoreDefaults.preferredBaseUrl())
         val configuredBase = ThemeStoreDefaults.resolveConfiguredBaseUrl(settings.themeStoreBaseUrl)
         val defaultBase = ThemeStoreRepository.normalizeBaseUrl(configuredBase)
         if (defaultBase != null) {
-            val defaultToken = when {
-                settings.themeStoreToken.isNotBlank() -> settings.themeStoreToken
-                defaultBase == builtInBase -> ""
-                else -> ""
-            }
             result += ThemeStoreSource(
                 id = "default",
                 name = "",
                 baseUrl = defaultBase,
-                token = defaultToken,
+                token = settings.themeStoreToken,
                 adminUrl = adminUrlFor(defaultBase, settings.themeStoreAdminUrl),
                 isDefault = true,
             )
@@ -2064,38 +2427,32 @@ private fun String.searchKey(): String =
 internal fun ThemeStoreItem.matchesSearch(
     query: String,
     adaptiveLabel: String = ADAPTIVE_TAG,
+    dynamicLabel: String = DYNAMIC_TAG,
 ): Boolean {
     val normalized = query.trim().lowercase(Locale.ROOT)
     if (normalized.isEmpty()) return true
-    val haystack = buildString {
-        append(entry.id).append(' ')
-        append(entry.name).append(' ')
-        append(entry.author).append(' ')
-        append(entry.description).append(' ')
-        append(entry.tags.joinToString(" ")).append(' ')
+    // Adaptive/dynamic badges match through their localized labels (and the literal English
+    // words), which sit outside the precomputed body. A query token carries no internal
+    // separator, so it cannot span the space that separates a label from the body.
+    val labelHaystack = buildString {
         if (isAdaptiveTheme()) append(adaptiveLabel).append(" adaptive ")
-        append(source.name).append(' ')
-        append(source.baseUrl)
+        if (isDynamicTheme()) append(dynamicLabel).append(" dynamic ")
     }.lowercase(Locale.ROOT)
+    val labelCompact = labelHaystack.searchKey()
     // Authors are displayed and shared as @name, so accept queries written that way too.
     val parts = normalized.split(Regex("\\s+"))
         .map { it.removePrefix("@") }
         .filter { it.isNotEmpty() }
     if (parts.isEmpty()) return true
-    if (parts.all { part -> haystack.contains(part) }) return true
+    if (parts.all { part -> searchBody.contains(part) || labelHaystack.contains(part) }) return true
     // Fallback: compare compacted text so handles written with spaces, underscores, full-width
     // characters or zero-width joiners still match.
-    val compactHaystack = haystack.searchKey()
     return parts.all { part ->
         val key = part.searchKey()
-        key.isNotEmpty() && compactHaystack.contains(key)
+        key.isNotEmpty() && (searchBodyCompact.contains(key) || labelCompact.contains(key))
     }
 }
 
-/**
- * Newest submissions first across all mirror sources. Entries without a timestamp keep the
- * server order at the end; the UI only shows the newest [limit] entries.
- */
 internal fun List<UserSubmission>.latestUserSubmissions(limit: Int = 20): List<UserSubmission> =
     sortedWith(compareByDescending { it.submission.submittedAt.orEmpty() })
         .take(limit.coerceAtLeast(0))
