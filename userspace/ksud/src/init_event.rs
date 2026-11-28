@@ -18,6 +18,24 @@ fn builtin_zygisk_step(step: &str, action: impl FnOnce() -> Result<()>) {
     }
 }
 
+/// Re-render the SuSFS auto-start module from the saved config when it is
+/// enabled. Called before any stage script runs so a ksud upgrade or a config
+/// change made through the CLI takes effect on this boot instead of waiting
+/// for the manager to reinstall the module.
+// Host clippy sees the cfg'd-out body as empty and suggests `const`; the
+// aarch64 build calls runtime config/module helpers, so it cannot be const.
+#[allow(clippy::missing_const_for_fn)]
+pub fn refresh_susfs_auto_start_module() {
+    #[cfg(target_arch = "aarch64")]
+    if crate::susfs_config::get(crate::susfs_config::keys::KEY_AUTO_START_ENABLED)
+        .is_ok_and(|value| value == "true")
+        && crate::susfs_module::is_module_installed()
+        && let Err(e) = crate::susfs_module::install_module()
+    {
+        warn!("refresh SuSFS auto-start module failed: {e}");
+    }
+}
+
 pub fn on_post_fs_data() -> Result<()> {
     if let Err(e) = ksucalls::ensure_uapi_version_matched() {
         error!("{e:#}, skip on_post_fs_data");
@@ -125,7 +143,7 @@ pub fn on_post_fs_data() -> Result<()> {
 
     #[cfg(target_arch = "aarch64")]
     if let Err(e) = kpm::booted_load() {
-        warn!("KPM: Failed to start KPM watcher: {e}");
+        warn!("KPM: boot load failed: {e}");
     }
 
     // A disabled built-in kept its files for the rest of the session so a running
@@ -139,6 +157,10 @@ pub fn on_post_fs_data() -> Result<()> {
     if let Err(e) = metamodule::exec_stage_script("post-fs-data", wait) {
         warn!("exec metamodule post-fs-data script failed: {e}");
     }
+
+    // Refresh the auto-start module from the current config before its own
+    // post-fs-data.sh runs.
+    refresh_susfs_auto_start_module();
 
     // exec modules post-fs-data scripts
     if let Err(e) = crate::module::exec_stage_script("post-fs-data", wait) {
