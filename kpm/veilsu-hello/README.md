@@ -1,1 +1,46 @@
-IyBWZWlsU1UgaGVsbG8gS1BNIOKAlCBMS00g6aqo5p62CgrmnIDlsI/lhoXmoLjmqKHlnZfniYggS1BNIOmqqOaetu+8jOaMiSBLU1UgTEtNIOeahOWBmuazleWunueOsO+8jOWOn+eUn+mAgumFjSBWZWlsU1XjgIIKCiMjIOi/meaYr+S7gOS5iAoK5LiA5Liq55yf5q2j55qE5Y+v5Yqg6L295YaF5qC45qih5Z2X77yIYC5rb2DvvInvvIzkuI3mmK8gS2VybmVsUGF0Y2gg55qEIGAua3BtYCDmlofku7bvvJoKCi0gYHZlaWxzdV9oZWxsby5jYO+8mmBtb2R1bGVfaW5pdGAgLyBgbW9kdWxlX2V4aXRg77yM5Yqg6L295pe25omT5Y2w54mI5pys77yM5Y246L295pe25riF55CG44CC6L+Y5rKh5pyJ5rOo5YaM5Lu75L2VIGhvb2vvvIzlhYjot5HpgJrnvJbjgIHliqDovb3jgIHljbjovb3mlbTmnaHpk77ot6/jgIIKLSBgS2J1aWxkYO+8mmBvYmotbSArPSB2ZWlsc3VfaGVsbG8ub2DjgIIKLSBgTWFrZWZpbGVg77ya54WnIGBrZXJuZWwvTWFrZWZpbGVg77yIYGtlcm5lbHN1LmtvYCDnmoTnvJbms5XvvInlgZrnmoQgb3V0LW9mLXRyZWUg57yW6K+R77yMYEtESVJgIOaMh+WQkeWHhuWkh+WlveeahOWGheaguOebruW9leOAggotIGAuZ2l0aHViL3dvcmtmbG93cy9rcG0taGVsbG8ueW1sYO+8mkNJIOWcqCBEREsg5a655Zmo6YeM57uZIGBhbmRyb2lkMTYtNi4xMmDvvIjkuIDliqAgMTXvvIzlhoXmoLggNi4xMi41OO+8iee8luWHuiBgdmVpbHN1X2hlbGxvLmtvYO+8jOS4iuS8oOS4uiBhcnRpZmFjdOOAggoK5Y6f55Sf6YCC6YWN54K577yaCgotIOebruaghyBLTUkg5pivIGBhbmRyb2lkMTYtNi4xMmDvvIzlkozku5PlupMgYHZlaWxzdS55bWxgIOeahCBidWlsZC1sa20g55So55qEIERESyDplZzlg4/kuIDoh7TvvIhgZ2hjci5pby95bGFyb2QvZGRrLW1pbjphbmRyb2lkMTYtNi4xMi0yMDI2MDgyOGDvvInjgILms6jmhI/nm67moIcgS01JIOi3n+aJi+acuuWunumZheWGheaguOi1sO+8iOS4gOWKoCAxNSDmmK8gNi4xMi41OO+8ie+8jOS4jeaYr+i3nyBBbmRyb2lkIOeJiOacrOi1sOOAggotIOeJiOacrOWPt+Wvuem9kOWGheaguOmHjCBLUE0g5o6n5Yi26Z2i55qEIEFCSe+8iGBrZXJuZWwvZXh0ZW5zaW9uL2twbS9icmlkZ2UuaGDvvIxgVkVJTFNVX0tQTV9BQklfVkVSU0lPTiA9PSAyYO+8ieOAggotIOazqOaEj++8mmB2ZWlsc3Vfa3BtX2JyaWRnZWAg5ZyoIGBrZXJuZWxzdS5rb2Ag5YaF6YOo77yM5rKh5pyJ5a+85Ye657uZ5Yir55qE5qih5Z2X77yM5omA5Lul5pys5qih5Z2X5LiN55u05o6l6ZO+5o6l5a6D44CCS1BNIOeahCBMT0FEIC8gVU5MT0FEIC8gTElTVCAvIElORk8gLyBDT05UUk9MIC8gVkVSU0lPTiDku43otbDnlKjmiLfmgIHvvIhrc3VkIC8g566h55CG5Zmo77yJ57uPIGBkb19rcG0oKWDjgILmqKHlnZflhoXopoHnlKjnmoTlhoXmoLjnrKblj7fvvIzoh6rlt7HlnKggYHZlaWxzdV9oZWxsb19pbml0KClgIOmHjOino+aekOOAgeazqOWGjO+8jOWcqCBgdmVpbHN1X2hlbGxvX2V4aXQoKWAg6YeM5Y+N5ZCR5rOo6ZSA44CCCgojIyBDSSDmnoTlu7oKCuaOqOWIsCBgdmVpbHN1LXYxYCDkuJTmlLnkuoYgYGtwbS92ZWlsc3UtaGVsbG8vKipgIOWwseS8muinpuWPkSBga3BtLWhlbGxvLnltbGDvvIzkuqfnianmmK8gYHZlaWxzdS1oZWxsby1hbmRyb2lkMTYtNi4xMmDvvIjlhoXlkKsgYHZlaWxzdV9oZWxsby5rb2DvvInvvIzkuZ/lj6/ku6XlnKggQWN0aW9ucyDph4zmiYvliqjot5HvvIh3b3JrZmxvd19kaXNwYXRjaO+8ieOAggoKIyMg5Zyo5LiA5YqgIDE1IOS4iua1i+ivlQoK5YWI5oqKIGB2ZWlsc3VfaGVsbG8ua29gIOS8oOWIsOaJi+acuiBgL3NkY2FyZC9Eb3dubG9hZC9g77yM5LiN6KaB5Yqg5Yiw5byA5py66Ieq5ZCv77yM5omL5Yqo5Yqg6L2977yM5Ye65LqG6Zeu6aKY6YeN5ZCv5bCx5rKh5LqG44CC5YWIIGBzdWAg6L+bIHJvb3Qgc2hlbGwg5YaN5LiA6KGM5LiA6KGM6LeR77yI5pyJ5Lqb57uI56uv5LiN5pSv5oyBIGBzdSAtY2DvvInvvJoKCmBgYHNoCnN1Cmluc21vZCAvc2RjYXJkL0Rvd25sb2FkL3ZlaWxzdV9oZWxsby5rbwpkbWVzZyB8IGdyZXAgdmVpbHN1LWhlbGxvCmxzbW9kIHwgZ3JlcCB2ZWlsc3VfaGVsbG8KYGBgCgrog73nnIvliLAgYFZlaWxTVSBLUE0gaGVsbG8gbG9hZGVkLCB2ZXJzaW9uIDAuMS4wYCDlsLHor7TmmI7pk77ot6/pgJrkuobjgILlho3ljbjovb3pqozor4HpgIDlh7rot6/lvoTvvJoKCmBgYHNoCnJtbW9kIHZlaWxzdV9oZWxsbwpkbWVzZyB8IGdyZXAgdmVpbHN1LWhlbGxvCmBgYAoK5aaC5p6cIGBpbnNtb2RgIOiiq+aLku+8iOavlOWmgiBgUmVxdWlyZWQga2V5IG5vdCBhdmFpbGFibGVgIOaIliBgSW52YWxpZCBtb2R1bGUgZm9ybWF0YO+8ie+8jOaYr+W9k+WJjeWGheaguOW8uuWItuaooeWdl+etvuWQjeaIliBLTUkg5LiN5Yy56YWN77yM5LiN5piv6aqo5p625Luj56CB55qE6Zeu6aKY77yM5LiN6KaB5Zyo5Li75Yqb5py65LiKIGAtLWZvcmNlYCDlvLrooYzliqDovb3jgIIKCiMjIOS4i+S4gOatpQoK6aqo5p626LeR6YCa5ZCO77yM5ZyoIGB2ZWlsc3VfaGVsbG9faW5pdCgpYCDph4zliqDnrKzkuIDkuKrnnJ/mraPnmoTlip/og73vvIhob29rIOebruagh+OAgeimgeaUueeahOespuWPt+OAgeWPguaVsO+8ie+8jOW5tuWcqCBgdmVpbHN1X2hlbGxvX2V4aXQoKWAg6YeM6KGl5a+55bqU55qE5rOo6ZSA44CCCg==
+# VeilSU hello KPM — LKM 骨架
+
+最小内核模块版 KPM 骨架，按 KSU LKM 的做法实现，原生适配 VeilSU。
+
+## 这是什么
+
+一个真正的可加载内核模块（`.ko`），不是 KernelPatch 的 `.kpm` 文件：
+
+- `veilsu_hello.c`：`module_init` / `module_exit`，加载时打印版本，卸载时清理。还没有注册任何 hook，先跑通编、加载、卸载整条链路。
+- `Kbuild`：`obj-m += veilsu_hello.o`。
+- `Makefile`：照 `kernel/Makefile`（`kernelsu.ko` 的编法）做的 out-of-tree 编译，`KDIR` 指向准备好的内核目录。
+- `.github/workflows/kpm-hello.yml`：CI 在 DDK 容器里给 `android16-6.12`（一加 15，内核 6.12.58）编出 `veilsu_hello.ko`，上传为 artifact。
+
+原生适配点：
+
+- 目标 KMI 是 `android16-6.12`，和仓库 `veilsu.yml` 的 build-lkm 用的 DDK 镜像一致（`ghcr.io/ylarod/ddk-min:android16-6.12-20260828`）。注意目标 KMI 跟手机实际内核走（一加 15 是 6.12.58），不是跟 Android 版本走。
+- 版本号对齐内核里 KPM 控制面的 ABI（`kernel/extension/kpm/bridge.h`，`VEILSU_KPM_ABI_VERSION == 2`）。
+- 注意：`veilsu_kpm_bridge` 在 `kernelsu.ko` 内部，没有导出给别的模块，所以本模块不直接链接它。KPM 的 LOAD / UNLOAD / LIST / INFO / CONTROL / VERSION 仍走用户态（ksud / 管理器）经 `do_kpm()`。模块内要用的内核符号，自己在 `veilsu_hello_init()` 里解析、注册，在 `veilsu_hello_exit()` 里反向注销。
+
+## CI 构建
+
+推到 `veilsu-v1` 且改了 `kpm/veilsu-hello/**` 就会触发 `kpm-hello.yml`，产物是 `veilsu-hello-android16-6.12`（内含 `veilsu_hello.ko`），也可以在 Actions 里手动跑（workflow_dispatch）。
+
+## 在一加 15 上测试
+
+先把 `veilsu_hello.ko` 传到手机 `/sdcard/Download/`，不要加到开机自启，手动加载，出了问题重启就没了。先 `su` 进 root shell 再一行一行跑（有些终端不支持 `su -c`）：
+
+```sh
+su
+insmod /sdcard/Download/veilsu_hello.ko
+dmesg | grep veilsu-hello
+lsmod | grep veilsu_hello
+```
+
+能看到 `VeilSU KPM hello loaded, version 0.1.0` 就说明链路通了。再卸载验证退出路径：
+
+```sh
+rmmod veilsu_hello
+dmesg | grep veilsu-hello
+```
+
+如果 `insmod` 被拒（比如 `Required key not available` 或 `Invalid module format`），是当前内核强制模块签名或 KMI 不匹配，不是骨架代码的问题，不要在主力机上 `--force` 强行加载。
+
+## 下一步
+
+骨架跑通后，在 `veilsu_hello_init()` 里加第一个真正的功能（hook 目标、要改的符号、参数），并在 `veilsu_hello_exit()` 里补对应的注销。
