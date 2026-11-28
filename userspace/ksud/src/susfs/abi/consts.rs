@@ -1,8 +1,11 @@
 //! SuSFS syscall constants.
 //!
 //! Magic numbers / command IDs / buffer sizes shared between every other
-//! submodule. Mirrors `susfs_defs.h` from the official `ksu_susfs` userspace
-//! tool.
+//! submodule. Mirrors `kernel_patches/include/linux/susfs_def.h` from
+//! susfs4ksu `gki-android14-6.1` (SuSFS v2.4.0). Deprecated command IDs
+//! (`SET_ANDROID_DATA_ROOT_PATH`, `SET_SDCARD_ROOT_PATH`, `ADD_SUS_MOUNT`,
+//! `UMOUNT_FOR_ZYGOTE_ISO_SERVICE`, `ADD_TRY_UMOUNT`, `SUS_SU`, ...) are
+//! intentionally not implemented.
 
 /// `reboot(2)` magic #1 expected by the SuSFS kernel module.
 pub const KSU_INSTALL_MAGIC1: u32 = 0xDEAD_BEEF;
