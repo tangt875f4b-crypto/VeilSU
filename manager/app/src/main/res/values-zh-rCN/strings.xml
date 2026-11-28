@@ -537,6 +537,16 @@
     <string name="install_kpm_operation">KPM 选择</string>
     <string name="install_kpm_summary">保留、应用或撤销内核中的 KPM 补丁。</string>
     <string name="install_kpm_inactive_unsupported">附加 KPM 暂仅支持直接安装到当前槽位；安装到非活动槽位前请关闭附加 KPM。</string>
+    <string name="install_kpm_kernel_module">作为内核模块安装</string>
+    <string name="install_kpm_kernel_module_summary">立即加载；之后每次开机由 ksud 自动加载。</string>
+    <string name="install_kpm_module_actions_summary">测试加载：仅本次开机生效。\n移除加载：无论当前是否加载 KPM，都会强制删除 /data/adb/kpm 下所有 .ko 与 .kpm 启动副本；若实时卸载失败，重启后彻底移除。</string>
+    <string name="install_kpm_test_load">测试加载</string>
+    <string name="install_kpm_remove_load">移除加载</string>
+    <string name="install_kpm_module_bundled">内置：%1$s</string>
+    <string name="install_kpm_module_bundled_missing">无内置 kpm.ko，请选择 .ko 文件</string>
+    <string name="install_kpm_module_custom">选择 kpm.ko</string>
+    <string name="install_kpm_module_clear">清除自定义 .ko</string>
+    <string name="install_kpm_module_unavailable">无内置 kpm.ko，请先选择 .ko 文件。</string>
     <string name="kernel_flashing">内核刷入</string>
     <string name="horizon_kernel">AnyKernel3 内核</string>
     <string name="horizon_kernel_summary">刷入AnyKernel3格式的内核zip包</string>
