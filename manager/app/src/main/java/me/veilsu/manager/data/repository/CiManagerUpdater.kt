@@ -12,6 +12,7 @@ import android.content.pm.PackageInfo
 import android.content.pm.PackageInstaller
 import android.content.pm.PackageManager
 import android.os.Build
+import android.os.SystemClock
 import me.veilsu.manager.BuildConfig
 import me.veilsu.manager.R
 import me.veilsu.manager.ksuApp
@@ -27,23 +28,44 @@ import java.util.zip.ZipFile
 
 
 class CiManagerUpdater(private val context: Context) {
+    enum class Stage {
+        DOWNLOADING,
+        VERIFYING,
+        INSTALLING,
+    }
+
     /**
      * [keepApk] false installs straight from the private cache copy and never
      * writes the APK to Downloads, so nothing is left behind after the update.
+     *
+     * [onProgress] and [onStage] are invoked on the calling (IO) thread. Progress
+     * is throttled to a few updates per second; the final callback reports 100%.
      */
-    fun updateAndInstall(update: LatestVersionInfo, keepApk: Boolean = true): Boolean {
-        if (!update.downloadUrl.startsWith(RELEASE_ASSET_PREFIX)) {
+    fun updateAndInstall(
+        update: LatestVersionInfo,
+        keepApk: Boolean = true,
+        onStage: (Stage) -> Unit = {},
+        onProgress: (downloadedBytes: Long, totalBytes: Long, bytesPerSecond: Long) -> Unit =
+            { _, _, _ -> },
+    ): Boolean {
+        // Custom update sources carry their own release download prefix; the
+        // built-in source keeps the original hard-coded one.
+        val expectedPrefix = update.downloadUrlPrefix.ifBlank { DEFAULT_RELEASE_ASSET_PREFIX }
+        if (!update.downloadUrl.startsWith(expectedPrefix)) {
             throw IOException(context.getString(R.string.ci_update_request_failed))
         }
         val abi = Build.SUPPORTED_ABIS.firstOrNull()?.takeIf { it in SUPPORTED_ABIS }
             ?: throw IOException(context.getString(R.string.ci_update_unsupported_arch))
         val apk = File.createTempFile("manager-ci-", ".apk", context.cacheDir)
         try {
-            download(update.downloadUrl, apk)
+            onStage(Stage.DOWNLOADING)
+            download(update.downloadUrl, apk, onProgress)
+            onStage(Stage.VERIFYING)
             verifyApk(apk, abi, update.versionCode)
             if (keepApk) {
                 saveToDownloads(apk, update.downloadUrl)
             }
+            onStage(Stage.INSTALLING)
             if (getRootShell().isRoot) {
                 val result = withNewRootShell {
                     if (!isRoot) throw IOException(context.getString(R.string.ci_update_install_failed))
@@ -113,19 +135,36 @@ class CiManagerUpdater(private val context: Context) {
         }
     }
 
-    private fun download(url: String, destination: File) {
-        ksuApp.okhttpClient.newCall(Request.Builder().url(url).build()).execute().use { response ->
+    private fun download(
+        url: String,
+        destination: File,
+        onProgress: (downloadedBytes: Long, totalBytes: Long, bytesPerSecond: Long) -> Unit,
+    ) {
+        val request = Request.Builder().url(url)
+        // The Forgejo instance requires auth for every download; without the
+        // header the request is 303'd to the login page and the "APK" is an HTML
+        // screen. Other hosts (github release mirrors) take no header.
+        if (url.startsWith("https://git.zako.shirkneko.top:20004")) {
+            request.header("Authorization", "token $RELEASE_DOWNLOAD_TOKEN")
+        }
+        ksuApp.okhttpClient.newCall(request.build()).execute().use { response ->
             if (!response.isSuccessful) {
                 throw IOException(context.getString(R.string.ci_update_http_error, response.code))
             }
             val body = response.body
-            if (body.contentLength() > MAX_APK_BYTES) {
+            val contentLength = body.contentLength()
+            if (contentLength > MAX_APK_BYTES) {
                 throw IOException(context.getString(R.string.ci_update_archive_too_large))
             }
             body.byteStream().use { input ->
                 FileOutputStream(destination).use { output ->
                     val buffer = ByteArray(64 * 1024)
                     var total = 0L
+                    val startedAt = SystemClock.elapsedRealtime()
+                    var sampledAt = startedAt
+                    var sampledBytes = 0L
+                    var bytesPerSecond = 0L
+                    onProgress(0L, contentLength, 0L)
                     while (true) {
                         val count = input.read(buffer)
                         if (count < 0) break
@@ -134,8 +173,22 @@ class CiManagerUpdater(private val context: Context) {
                             throw IOException(context.getString(R.string.ci_update_archive_too_large))
                         }
                         output.write(buffer, 0, count)
+                        val now = SystemClock.elapsedRealtime()
+                        val elapsed = now - sampledAt
+                        if (elapsed >= PROGRESS_SAMPLE_INTERVAL_MS) {
+                            bytesPerSecond = (total - sampledBytes) * 1000 / elapsed
+                            sampledAt = now
+                            sampledBytes = total
+                            onProgress(total, contentLength, bytesPerSecond)
+                        }
                     }
                     output.fd.sync()
+                    if (bytesPerSecond == 0L && total > 0L) {
+                        // Small files can finish between samples; report the average.
+                        val elapsed = (SystemClock.elapsedRealtime() - startedAt).coerceAtLeast(1L)
+                        bytesPerSecond = total * 1000 / elapsed
+                    }
+                    onProgress(total, contentLength, bytesPerSecond)
                 }
             }
         }
@@ -242,9 +295,14 @@ class CiManagerUpdater(private val context: Context) {
     }
 
     companion object {
-        private const val RELEASE_ASSET_PREFIX =
+        private const val DEFAULT_RELEASE_ASSET_PREFIX =
             "https://github.com/tangt875f4b-crypto/VeilSU/releases/download/"
+        // Built-in access token for the instance's release downloads (it no
+        // longer serves anonymous requests). Read-only scope is enough.
+        private const val RELEASE_DOWNLOAD_TOKEN =
+            "af757b8a4ea3ac99ac2731aeba8a12743282feb0"
         private const val MAX_APK_BYTES = 512L * 1024 * 1024
+        private const val PROGRESS_SAMPLE_INTERVAL_MS = 400L
         private val SUPPORTED_ABIS = setOf("arm64-v8a", "armeabi-v7a", "x86_64", "riscv64")
     }
 }
