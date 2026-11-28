@@ -36,19 +36,19 @@ pub struct SusfsUname {
 
 #[repr(C)]
 pub struct SusfsLog {
-    pub enabled: u32,
+    pub enabled: bool,
     pub err: i32,
 }
 
 #[repr(C)]
 pub struct SusfsAvcLogSpoofing {
-    pub enabled: u32,
+    pub enabled: bool,
     pub err: i32,
 }
 
 #[repr(C)]
 pub struct SusfsHideSusMnts {
-    pub enabled: u32,
+    pub enabled: bool,
     pub err: i32,
 }
 
@@ -56,13 +56,13 @@ pub struct SusfsHideSusMnts {
 pub struct SusfsOpenRedirect {
     pub target_pathname: [u8; SUSFS_MAX_PATHNAME],
     pub redirected_pathname: [u8; SUSFS_MAX_PATHNAME],
-    pub uid_scheme: u32,
+    pub uid_scheme: i32,
     pub err: i32,
 }
 
 #[repr(C)]
 pub struct SusfsKstat {
-    pub is_statically: u32,
+    pub is_statically: bool,
     pub target_ino: u64,
     pub target_pathname: [u8; SUSFS_MAX_PATHNAME],
     pub spoofed_ino: u64,
