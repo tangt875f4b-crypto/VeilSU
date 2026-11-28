@@ -14,7 +14,7 @@ VeilSU v1 is minimal on purpose: modules + su authorization only, no Zygisk — 
 ## Features
 
 1. Kernel-based `su` and permission management.
-2. App Profile: keep root access in a cage.
+2. [App Profile](https://sukisu.org/guide/app-profile): keep root access in a cage.
 3. KPM support.
 4. No Zygisk in v1 — VeilSU ships no zygote injection. Modules run as plain modules (scripts + system files); Zygisk modules' zygote code does not run.
 5. Theme Store: browse, install and submit themes, with author authorization and review.
