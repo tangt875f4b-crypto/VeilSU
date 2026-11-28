@@ -25,6 +25,9 @@ import me.veilsu.manager.ui.util.AdaptiveThemeDraft
 import me.veilsu.manager.ui.util.AdaptiveThemeState
 import me.veilsu.manager.ui.util.AdaptiveThemeStore
 import me.veilsu.manager.ui.util.AdaptiveThemeVariantState
+import me.veilsu.manager.ui.util.AdaptiveDynamicSnapshot
+import me.veilsu.manager.ui.util.DynamicWallpaperGeometry
+import me.veilsu.manager.ui.util.DynamicWallpaperPackage
 import me.veilsu.manager.ui.util.AppearanceOverlayData
 import me.veilsu.manager.ui.util.AppearanceOverlayStore
 import me.veilsu.manager.ui.util.BottomBarIconSlot
@@ -38,6 +41,8 @@ import me.veilsu.manager.ui.util.HomeCardStickerTransform
 import me.veilsu.manager.ui.util.HomeLayout
 import me.veilsu.manager.ui.util.HomeStatusAlignment
 import me.veilsu.manager.ui.util.HomeStatusStyle
+import me.veilsu.manager.ui.component.background.DynamicWallpaperTarget
+import me.veilsu.manager.ui.component.background.DynamicWallpaperTransform
 import me.veilsu.manager.ui.util.ImageStorage
 import me.veilsu.manager.ui.util.ImportedTheme
 import me.veilsu.manager.ui.util.ImportedThemeVariant
@@ -71,13 +76,14 @@ private data class CurrentThemePayload(
     val stickerFiles: List<File>,
     val bottomBarIconFiles: Map<String, File> = emptyMap(),
     val adaptive: ThemePackageAdaptiveExport? = null,
+    val dynamicWallpaperFile: File? = null,
+    val dynamicHomeCardFile: File? = null,
 )
 
 class SettingsViewModel(
     private val repo: SettingsRepository = SettingsRepositoryImpl()
 ) : ViewModel() {
 
-    /** Parsed once when the view model is created; the store caches by raw JSON afterward. */
     private val initialAppearanceData = AppearanceOverlayStore.data(repo)
 
     private val _uiState = MutableStateFlow(SettingsUiState(
@@ -91,8 +97,11 @@ class SettingsViewModel(
         homeCardSectionExpanded = repo.homeCardSectionExpanded,
         colorsSectionExpanded = repo.colorsSectionExpanded,
         bottomBarSectionExpanded = repo.bottomBarSectionExpanded,
+        topBarSectionExpanded = repo.topBarSectionExpanded,
         interactionSectionExpanded = repo.interactionSectionExpanded,
         detailsSectionExpanded = repo.detailsSectionExpanded,
+        topBarStyle = repo.topBarStyle,
+        topBarPillFade = repo.topBarPillFade,
         customHomeTitle = repo.customHomeTitle,
         customTexts = repo.customTexts,
         themeStoreBaseUrl = repo.themeStoreBaseUrl,
@@ -109,18 +118,33 @@ class SettingsViewModel(
         adaptiveDraftLightCaptured = AdaptiveThemeStore.loadDraft(repo)?.light != null,
         adaptiveDraftDarkCaptured = AdaptiveThemeStore.loadDraft(repo)?.dark != null,
         adaptiveDraftComplete = AdaptiveThemeStore.loadDraft(repo)?.complete == true,
+        adaptiveDraftDynamicWallpaper = AdaptiveThemeStore.loadDraft(repo)
+            ?.dynamic?.wallpaperPath?.isNotBlank() == true,
+        adaptiveDraftDynamicHomeCard = AdaptiveThemeStore.loadDraft(repo)
+            ?.dynamic?.homeCardPath?.isNotBlank() == true,
         customAppearanceJson = repo.customAppearanceJson,
         customColorsPresent = initialAppearanceData?.colors != null,
         imageEffectsPresent = initialAppearanceData?.image != null,
         appearance = AppearanceOverlayStore.load(repo),
         appearanceData = initialAppearanceData,
+        dynamicWallpaperPath = ImageStorage.dynamicWallpaperFile(ksuApp)?.absolutePath.orEmpty(),
+        dynamicWallpaperUpdatedAt = repo.dynamicWallpaperUpdatedAt,
+        dynamicWallpaperMuted = repo.dynamicWallpaperMuted,
+        dynamicWallpaperFit = repo.dynamicWallpaperFit,
+        dynamicWallpaperZoom = repo.dynamicWallpaperZoom,
+        dynamicWallpaperOffsetX = repo.dynamicWallpaperOffsetX,
+        dynamicWallpaperOffsetY = repo.dynamicWallpaperOffsetY,
+        dynamicWallpaperFps = repo.dynamicWallpaperFps,
+        dynamicWallpaperSpeed = repo.dynamicWallpaperSpeed,
+        dynamicHomeCardPath = ImageStorage.dynamicHomeCardFile(ksuApp)?.absolutePath.orEmpty(),
+        dynamicHomeCardUpdatedAt = repo.dynamicHomeCardUpdatedAt,
+        dynamicHomeCardFit = repo.dynamicHomeCardFit,
+        dynamicHomeCardZoom = repo.dynamicHomeCardZoom,
+        dynamicHomeCardOffsetX = repo.dynamicHomeCardOffsetX,
+        dynamicHomeCardOffsetY = repo.dynamicHomeCardOffsetY,
     ))
     val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
 
-    /**
-     * The appearance page's own state. It is derived from [uiState] only when a setting actually
-     * changes, so enum/string parsing and the preview inputs never run per recomposition.
-     */
     val colorPaletteState: StateFlow<ColorPaletteUiState> = _uiState
         .map { it.toColorPaletteUiState() }
         .distinctUntilChanged()
@@ -130,11 +154,6 @@ class SettingsViewModel(
             initialValue = _uiState.value.toColorPaletteUiState(),
         )
 
-    /**
-     * Incremented whenever the background seed is about to be recomputed or replaced. A scoring
-     * run only commits its result while its generation is still current, so a slower run started
-     * by an earlier tap cannot overwrite a newer choice.
-     */
     private var seedGeneration = 0
 
     
@@ -158,6 +177,8 @@ class SettingsViewModel(
             val enableProgressiveBlur = repo.enableProgressiveBlur
             val enableFloatingBottomBar = repo.enableFloatingBottomBar
             val enableFloatingBottomBarBlur = repo.enableFloatingBottomBarBlur
+            val topBarStyle = repo.topBarStyle
+            val topBarPillFade = repo.topBarPillFade
             val enableNavigationBadge = repo.enableNavigationBadge
             val pageScale = repo.pageScale
             val bottomBarIcons = repo.bottomBarIcons
@@ -221,6 +242,16 @@ class SettingsViewModel(
             val isLateLoadMode = Natives.isLateLoadMode
             val systemWallpaperPath = ImageStorage.systemWallpaperFile(ksuApp)
                 .takeIf { it.isFile }?.absolutePath.orEmpty()
+            // A wallpaper file deleted outside the app leaves a stale path; hide it until the
+            // user picks a new one instead of pointing the renderer at a missing file.
+            val dynamicWallpaperPath = ImageStorage.dynamicWallpaperFile(ksuApp)?.absolutePath.orEmpty()
+            if (dynamicWallpaperPath.isEmpty() && repo.dynamicWallpaperPath.isNotEmpty()) {
+                repo.dynamicWallpaperPath = ""
+            }
+            val dynamicHomeCardPath = ImageStorage.dynamicHomeCardFile(ksuApp)?.absolutePath.orEmpty()
+            if (dynamicHomeCardPath.isEmpty() && repo.dynamicHomeCardPath.isNotEmpty()) {
+                repo.dynamicHomeCardPath = ""
+            }
 
             _uiState.update {
                 it.copy(
@@ -238,6 +269,7 @@ class SettingsViewModel(
                     homeCardSectionExpanded = repo.homeCardSectionExpanded,
                     colorsSectionExpanded = repo.colorsSectionExpanded,
                     bottomBarSectionExpanded = repo.bottomBarSectionExpanded,
+                    topBarSectionExpanded = repo.topBarSectionExpanded,
                     interactionSectionExpanded = repo.interactionSectionExpanded,
                     detailsSectionExpanded = repo.detailsSectionExpanded,
                     customHomeTitle = repo.customHomeTitle,
@@ -273,6 +305,8 @@ homePillScale = HomeStatusStyle.coercePillScale(repo.homePillScale),
                     enableProgressiveBlur = enableProgressiveBlur,
                     enableFloatingBottomBar = enableFloatingBottomBar,
                     enableFloatingBottomBarBlur = enableFloatingBottomBarBlur,
+                    topBarStyle = topBarStyle,
+                    topBarPillFade = topBarPillFade,
                     enableNavigationBadge = enableNavigationBadge,
                     pageScale = pageScale,
                     moduleDescriptionMaxLines = moduleDescriptionMaxLines,
@@ -308,6 +342,21 @@ homePillScale = HomeStatusStyle.coercePillScale(repo.homePillScale),
                     isLateLoadMode = isLateLoadMode,
                     customBackgroundUri = repo.customBackgroundUri,
                     customBackgroundUpdatedAt = repo.customBackgroundUpdatedAt,
+                    dynamicWallpaperPath = dynamicWallpaperPath,
+                    dynamicWallpaperUpdatedAt = repo.dynamicWallpaperUpdatedAt,
+                    dynamicWallpaperMuted = repo.dynamicWallpaperMuted,
+                    dynamicWallpaperFit = repo.dynamicWallpaperFit,
+                    dynamicWallpaperZoom = repo.dynamicWallpaperZoom,
+                    dynamicWallpaperOffsetX = repo.dynamicWallpaperOffsetX,
+                    dynamicWallpaperOffsetY = repo.dynamicWallpaperOffsetY,
+                    dynamicWallpaperFps = repo.dynamicWallpaperFps,
+                    dynamicWallpaperSpeed = repo.dynamicWallpaperSpeed,
+                    dynamicHomeCardPath = dynamicHomeCardPath,
+                    dynamicHomeCardUpdatedAt = repo.dynamicHomeCardUpdatedAt,
+                    dynamicHomeCardFit = repo.dynamicHomeCardFit,
+                    dynamicHomeCardZoom = repo.dynamicHomeCardZoom,
+                    dynamicHomeCardOffsetX = repo.dynamicHomeCardOffsetX,
+                    dynamicHomeCardOffsetY = repo.dynamicHomeCardOffsetY,
                     useSystemWallpaper = repo.useSystemWallpaper && systemWallpaperPath.isNotEmpty(),
                     systemWallpaperPath = systemWallpaperPath,
                     extractColorFromBackground = repo.derivesKeyColorFromBackground(),
@@ -418,10 +467,27 @@ homePillScale = HomeStatusStyle.coercePillScale(repo.homePillScale),
         val useSystemWallpaper = repo.useSystemWallpaper
         val systemWallpaperPath = ImageStorage.systemWallpaperFile(ksuApp)
             .takeIf { it.isFile }?.absolutePath.orEmpty()
+        val dynamicWallpaperPath = ImageStorage.dynamicWallpaperFile(ksuApp)?.absolutePath.orEmpty()
+        val dynamicHomeCardPath = ImageStorage.dynamicHomeCardFile(ksuApp)?.absolutePath.orEmpty()
         _uiState.update {
             it.copy(
                 customBackgroundUri = repo.customBackgroundUri,
                 customBackgroundUpdatedAt = repo.customBackgroundUpdatedAt,
+                dynamicWallpaperPath = dynamicWallpaperPath,
+                dynamicWallpaperUpdatedAt = repo.dynamicWallpaperUpdatedAt,
+                dynamicWallpaperMuted = repo.dynamicWallpaperMuted,
+                dynamicWallpaperFit = repo.dynamicWallpaperFit,
+                dynamicWallpaperZoom = repo.dynamicWallpaperZoom,
+                dynamicWallpaperOffsetX = repo.dynamicWallpaperOffsetX,
+                dynamicWallpaperOffsetY = repo.dynamicWallpaperOffsetY,
+                dynamicWallpaperFps = repo.dynamicWallpaperFps,
+                dynamicWallpaperSpeed = repo.dynamicWallpaperSpeed,
+                dynamicHomeCardPath = dynamicHomeCardPath,
+                dynamicHomeCardUpdatedAt = repo.dynamicHomeCardUpdatedAt,
+                dynamicHomeCardFit = repo.dynamicHomeCardFit,
+                dynamicHomeCardZoom = repo.dynamicHomeCardZoom,
+                dynamicHomeCardOffsetX = repo.dynamicHomeCardOffsetX,
+                dynamicHomeCardOffsetY = repo.dynamicHomeCardOffsetY,
                 cardBackgroundAlphaPercent = repo.cardBackgroundAlphaPercent,
                 customBackgroundBlurPercent = repo.customBackgroundBlurPercent,
                 customBackgroundScrimPercent = repo.customBackgroundScrimPercent,
@@ -538,6 +604,179 @@ homePillScale = HomeStatusStyle.coercePillScale(repo.homePillScale),
                 )
             }
         }
+    }
+
+    /**
+     * Validates and copies a picked MP4/WebP into the preview cache. The result goes back to the
+     * screen so size/format errors can be shown instead of failing silently.
+     */
+    fun stageDynamicWallpaper(
+        context: Context,
+        uri: Uri,
+        onResult: (ImageStorage.DynamicWallpaperResult) -> Unit,
+    ) {
+        viewModelScope.launch {
+            val result = try {
+                ImageStorage.stageDynamicWallpaper(context, uri)
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                ImageStorage.DynamicWallpaperResult.Failed
+            }
+            onResult(result)
+        }
+    }
+
+    fun commitDynamicWallpaper(
+        context: Context,
+        stagedPath: String,
+        target: DynamicWallpaperTarget = DynamicWallpaperTarget.APP,
+        onResult: (Boolean) -> Unit,
+    ) {
+        viewModelScope.launch {
+            val result = try {
+                when (target) {
+                    DynamicWallpaperTarget.APP ->
+                        ImageStorage.commitStagedDynamicWallpaper(context, stagedPath)
+
+                    DynamicWallpaperTarget.CARD ->
+                        ImageStorage.commitStagedDynamicHomeCard(context, stagedPath)
+                }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                null
+            }
+            if (result is ImageStorage.DynamicWallpaperResult.Ready) {
+                ImageStorage.discardStagedDynamicWallpaper(stagedPath)
+                val updatedAt = System.currentTimeMillis()
+                when (target) {
+                    DynamicWallpaperTarget.APP -> {
+                        repo.dynamicWallpaperPath = result.path
+                        repo.dynamicWallpaperUpdatedAt = updatedAt
+                        _uiState.update {
+                            it.copy(
+                                dynamicWallpaperPath = result.path,
+                                dynamicWallpaperUpdatedAt = updatedAt,
+                            )
+                        }
+                    }
+
+                    DynamicWallpaperTarget.CARD -> {
+                        repo.dynamicHomeCardPath = result.path
+                        repo.dynamicHomeCardUpdatedAt = updatedAt
+                        _uiState.update {
+                            it.copy(
+                                dynamicHomeCardPath = result.path,
+                                dynamicHomeCardUpdatedAt = updatedAt,
+                            )
+                        }
+                    }
+                }
+                onResult(true)
+            } else {
+                onResult(false)
+            }
+        }
+    }
+
+    fun clearDynamicWallpaper(
+        context: Context,
+        target: DynamicWallpaperTarget = DynamicWallpaperTarget.APP,
+        onDone: () -> Unit = {},
+    ) {
+        viewModelScope.launch {
+            try {
+                when (target) {
+                    DynamicWallpaperTarget.APP -> ImageStorage.clearDynamicWallpaper(context)
+                    DynamicWallpaperTarget.CARD -> ImageStorage.clearDynamicHomeCard(context)
+                }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                // The setting is cleared below even if a file could not be deleted.
+            }
+            val updatedAt = System.currentTimeMillis()
+            when (target) {
+                DynamicWallpaperTarget.APP -> {
+                    repo.dynamicWallpaperPath = ""
+                    repo.dynamicWallpaperUpdatedAt = updatedAt
+                    _uiState.update {
+                        it.copy(
+                            dynamicWallpaperPath = "",
+                            dynamicWallpaperUpdatedAt = updatedAt,
+                        )
+                    }
+                }
+
+                DynamicWallpaperTarget.CARD -> {
+                    repo.dynamicHomeCardPath = ""
+                    repo.dynamicHomeCardUpdatedAt = updatedAt
+                    _uiState.update {
+                        it.copy(
+                            dynamicHomeCardPath = "",
+                            dynamicHomeCardUpdatedAt = updatedAt,
+                        )
+                    }
+                }
+            }
+            onDone()
+        }
+    }
+
+    fun setDynamicWallpaperTransform(
+        target: DynamicWallpaperTarget,
+        transform: DynamicWallpaperTransform,
+    ) {
+        val sanitized = transform.sanitized()
+        when (target) {
+            DynamicWallpaperTarget.APP -> {
+                repo.dynamicWallpaperFit = sanitized.fit.value
+                repo.dynamicWallpaperZoom = sanitized.zoom
+                repo.dynamicWallpaperOffsetX = sanitized.offsetX
+                repo.dynamicWallpaperOffsetY = sanitized.offsetY
+                _uiState.update {
+                    it.copy(
+                        dynamicWallpaperFit = sanitized.fit.value,
+                        dynamicWallpaperZoom = sanitized.zoom,
+                        dynamicWallpaperOffsetX = sanitized.offsetX,
+                        dynamicWallpaperOffsetY = sanitized.offsetY,
+                    )
+                }
+            }
+
+            DynamicWallpaperTarget.CARD -> {
+                repo.dynamicHomeCardFit = sanitized.fit.value
+                repo.dynamicHomeCardZoom = sanitized.zoom
+                repo.dynamicHomeCardOffsetX = sanitized.offsetX
+                repo.dynamicHomeCardOffsetY = sanitized.offsetY
+                _uiState.update {
+                    it.copy(
+                        dynamicHomeCardFit = sanitized.fit.value,
+                        dynamicHomeCardZoom = sanitized.zoom,
+                        dynamicHomeCardOffsetX = sanitized.offsetX,
+                        dynamicHomeCardOffsetY = sanitized.offsetY,
+                    )
+                }
+            }
+        }
+    }
+
+    fun setDynamicWallpaperMuted(muted: Boolean) {
+        repo.dynamicWallpaperMuted = muted
+        _uiState.update { it.copy(dynamicWallpaperMuted = muted) }
+    }
+
+    fun setDynamicWallpaperFps(fps: Int) {
+        val coerced = if (fps in intArrayOf(0, 24, 30, 60)) fps else 0
+        repo.dynamicWallpaperFps = coerced
+        _uiState.update { it.copy(dynamicWallpaperFps = coerced) }
+    }
+
+    fun setDynamicWallpaperSpeed(speed: Float) {
+        val coerced = speed.coerceIn(0.25f, 2f)
+        repo.dynamicWallpaperSpeed = coerced
+        _uiState.update { it.copy(dynamicWallpaperSpeed = coerced) }
     }
 
     fun setCardBackgroundAlphaPercent(percent: Int) {
@@ -735,7 +974,6 @@ homePillScale = HomeStatusStyle.coercePillScale(repo.homePillScale),
 
     fun exportCustomBackground(context: Context, uri: Uri) = exportImages(context, uri)
 
-    /** Applies a validated static overlay. Parsing happens in the editor/package boundary. */
     fun applyCustomAppearance(data: AppearanceOverlayData) {
         viewModelScope.launch {
             withContext(Dispatchers.IO) { AppearanceOverlayStore.save(repo, data) }
@@ -795,15 +1033,31 @@ homePillScale = HomeStatusStyle.coercePillScale(repo.homePillScale),
                 cardStickerFiles = payload.stickerFiles,
                 bottomBarIconFiles = payload.bottomBarIconFiles,
                 adaptive = payload.adaptive,
+                dynamicWallpaperFile = payload.dynamicWallpaperFile,
+                dynamicHomeCardFile = payload.dynamicHomeCardFile,
             )
-                .onSuccess {
-                    Toast.makeText(ksuApp, R.string.theme_export_success, Toast.LENGTH_SHORT).show()
+                .onSuccess { report ->
+                    Toast.makeText(ksuApp, themeExportMessage(report), Toast.LENGTH_LONG).show()
                 }
-                .onFailure {
-                    Toast.makeText(ksuApp, R.string.theme_export_failed, Toast.LENGTH_SHORT).show()
+                .onFailure { error ->
+                    val message = if (
+                        error.message?.contains("too large", ignoreCase = true) == true
+                    ) {
+                        R.string.theme_export_package_too_large
+                    } else {
+                        R.string.theme_export_failed
+                    }
+                    Toast.makeText(ksuApp, message, Toast.LENGTH_LONG).show()
                 }
         }
     }
+
+    private fun themeExportMessage(report: me.veilsu.manager.ui.util.ThemePackageExportReport): Int =
+        if (report.skippedDynamic) {
+            R.string.theme_export_dynamic_skipped
+        } else {
+            R.string.theme_export_success
+        }
 
     /** Options picked in the export dialog, reused when the upload form builds a preset package. */
     private var pendingThemeUploadOptions: ThemePackageOptions? = null
@@ -816,12 +1070,18 @@ homePillScale = HomeStatusStyle.coercePillScale(repo.homePillScale),
         pendingThemeUploadOptions = null
     }
 
-    suspend fun createCurrentThemePackage(context: Context): Result<File> = withContext(Dispatchers.IO) {
+    suspend fun createCurrentThemePackage(
+        context: Context,
+        options: ThemePackageOptions? = null,
+    ): Result<File> = withContext(Dispatchers.IO) {
         runCatching {
-            val options = pendingThemeUploadOptions ?: ThemePackageOptions()
-            val payload = currentThemePayload(options, preferDraft = false)
+            // Uploads reuse the options picked in the export sheet; internal snapshots (trial
+            // backup, import rollback) pass explicit defaults so a stale sheet cannot silently
+            // leave parts of the current appearance out of the backup.
+            val resolved = options ?: pendingThemeUploadOptions ?: ThemePackageOptions()
+            val payload = currentThemePayload(resolved, preferDraft = false)
             val file = File(context.cacheDir, "theme_upload_preset.veilsu")
-            ThemePackageStorage.exportToFile(
+            val report = ThemePackageStorage.exportToFile(
                 file = file,
                 data = payload.data,
                 backgroundFile = payload.backgroundFile,
@@ -829,7 +1089,18 @@ homePillScale = HomeStatusStyle.coercePillScale(repo.homePillScale),
                 cardStickerFiles = payload.stickerFiles,
                 bottomBarIconFiles = payload.bottomBarIconFiles,
                 adaptive = payload.adaptive,
+                dynamicWallpaperFile = payload.dynamicWallpaperFile,
+                dynamicHomeCardFile = payload.dynamicHomeCardFile,
             ).getOrThrow()
+            if (report.skippedDynamic) {
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(
+                        ksuApp,
+                        R.string.theme_export_dynamic_skipped,
+                        Toast.LENGTH_LONG,
+                    ).show()
+                }
+            }
             file
         }
     }
@@ -880,6 +1151,63 @@ homePillScale = HomeStatusStyle.coercePillScale(repo.homePillScale),
             }.toMap()
         } else {
             emptyMap()
+        }
+        // A complete adaptive draft owns its own snapshot of the shared dynamic media; otherwise
+        // the live files are exported.
+        val draftDynamic = draft?.dynamic
+        val dynamicWallpaperFile = if (options.dynamicWallpaper) {
+            if (draftDynamic != null) {
+                draftDynamic.wallpaperPath
+                    .takeIf { it.isNotBlank() }
+                    ?.let { path -> File(path).takeIf { it.isFile } }
+            } else {
+                ImageStorage.dynamicWallpaperFile(ksuApp)
+            }
+        } else {
+            null
+        }
+        val dynamicHomeCardFile = if (options.dynamicHomeCard) {
+            if (draftDynamic != null) {
+                draftDynamic.homeCardPath
+                    .takeIf { it.isNotBlank() }
+                    ?.let { path -> File(path).takeIf { it.isFile } }
+            } else {
+                ImageStorage.dynamicHomeCardFile(ksuApp)
+            }
+        } else {
+            null
+        }
+        val dynamicGeometry = draftDynamic?.wallpaperTransform?.sanitized()
+            ?: DynamicWallpaperGeometry(
+                fit = repo.dynamicWallpaperFit,
+                zoom = repo.dynamicWallpaperZoom,
+                offsetX = repo.dynamicWallpaperOffsetX,
+                offsetY = repo.dynamicWallpaperOffsetY,
+            ).sanitized()
+        val dynamicCardGeometry = draftDynamic?.homeCardTransform?.sanitized()
+            ?: DynamicWallpaperGeometry(
+                fit = repo.dynamicHomeCardFit,
+                zoom = repo.dynamicHomeCardZoom,
+                offsetX = repo.dynamicHomeCardOffsetX,
+                offsetY = repo.dynamicHomeCardOffsetY,
+            ).sanitized()
+        val dynamicData = if (options.dynamicWallpaper || options.dynamicHomeCard) {
+            DynamicWallpaperPackage(
+                hasWallpaper = if (options.dynamicWallpaper) {
+                    dynamicWallpaperFile != null
+                } else {
+                    null
+                },
+                hasHomeCard = if (options.dynamicHomeCard) {
+                    dynamicHomeCardFile != null
+                } else {
+                    null
+                },
+                wallpaperTransform = dynamicGeometry.takeIf { dynamicWallpaperFile != null },
+                homeCardTransform = dynamicCardGeometry.takeIf { dynamicHomeCardFile != null },
+            )
+        } else {
+            null
         }
         val builtinIconIds = setOf(
             BuiltinAppIcons.DEFAULT_ID,
@@ -934,6 +1262,8 @@ homeStatusAlignment = HomeStatusAlignment.fromValue(repo.homeStatusAlignment).va
             enableProgressiveBlur = repo.enableProgressiveBlur.takeIf { options.interfaceSwitches },
             enableFloatingBottomBar = repo.enableFloatingBottomBar.takeIf { options.interfaceSwitches },
             enableFloatingBottomBarBlur = repo.enableFloatingBottomBarBlur.takeIf { options.interfaceSwitches },
+            topBarStyle = repo.topBarStyle.takeIf { options.interfaceSwitches },
+            topBarPillFade = repo.topBarPillFade.takeIf { options.interfaceSwitches },
             enableNavigationBadge = repo.enableNavigationBadge.takeIf { options.interfaceSwitches },
             enablePredictiveBack = repo.enablePredictiveBack.takeIf { options.interactionBehavior },
             enableSwipeDismiss = repo.enableSwipeDismiss.takeIf { options.interactionBehavior },
@@ -962,14 +1292,17 @@ homeStatusAlignment = HomeStatusAlignment.fromValue(repo.homeStatusAlignment).va
                 options.bottomBarIcons
             },
             appearance = currentAppearanceForExport(options),
+            dynamic = dynamicData,
         )
         return CurrentThemePayload(
-            data,
-            backgroundFile,
-            cardBackgroundFile,
-            cardStickerFiles,
-            bottomBarIconFiles,
-            adaptive,
+            data = data,
+            backgroundFile = backgroundFile,
+            cardBackgroundFile = cardBackgroundFile,
+            stickerFiles = cardStickerFiles,
+            bottomBarIconFiles = bottomBarIconFiles,
+            adaptive = adaptive,
+            dynamicWallpaperFile = dynamicWallpaperFile,
+            dynamicHomeCardFile = dynamicHomeCardFile,
         )
     }
 
@@ -1097,6 +1430,8 @@ homePillScale = if (options.homeCardDisplay) source.homePillScale else null,
             } else {
                 null
             },
+            topBarStyle = if (options.interfaceSwitches) repo.topBarStyle else null,
+            topBarPillFade = if (options.interfaceSwitches) repo.topBarPillFade else null,
             enableNavigationBadge = if (options.interfaceSwitches) {
                 repo.enableNavigationBadge
             } else {
@@ -1142,7 +1477,11 @@ homePillScale = if (options.homeCardDisplay) source.homePillScale else null,
     }
 
     
-    fun importThemeFile(context: Context, file: File) {
+    /**
+     * Applies a package file through the import dialog. Temporary download files are deleted
+     * afterwards; [keepFile] preserves packages that live in the persistent download library.
+     */
+    fun importThemeFile(context: Context, file: File, keepFile: Boolean = false) {
         viewModelScope.launch {
             ThemePackageStorage.import(context, Uri.fromFile(file))
                 .onSuccess { imported ->
@@ -1156,7 +1495,7 @@ homePillScale = if (options.homeCardDisplay) source.homePillScale else null,
                 .onFailure {
                     Toast.makeText(ksuApp, R.string.theme_import_failed, Toast.LENGTH_SHORT).show()
                 }
-            runCatching { file.delete() }
+            if (!keepFile) runCatching { file.delete() }
         }
     }
 
@@ -1174,58 +1513,62 @@ homePillScale = if (options.homeCardDisplay) source.homePillScale else null,
     }
 
     fun confirmImportTheme(context: Context, options: ThemePackageOptions) {
-        val pending = _uiState.value.pendingImportTheme ?: return
+        var claimed: ImportedTheme? = null
+        _uiState.update { state ->
+            val current = state.pendingImportTheme ?: return@update state
+            claimed = current
+            state.copy(
+                pendingImportTheme = null,
+                showThemeImportDialog = false,
+            )
+        }
+        val pending = claimed ?: return
         viewModelScope.launch {
-            val rollbackPackage = runCatching {
-                withContext(Dispatchers.IO) { createCurrentThemePackage(context).getOrThrow() }
-            }.getOrNull()
-            // Applying copies every extracted image and rewrites the appearance settings.
-            // Keeping it off the main thread avoids an ANR while a large package is promoted.
-            val applied = runCatching {
-                withContext(Dispatchers.IO) { applyImportedTheme(context, pending, options, clearFirst = true) }
-            }
-            if (applied.isFailure) {
-                AdaptiveThemeStore.clear(repo)
-                if (pending.isAdaptive) {
+            var rollbackPackage: File? = null
+            try {
+                rollbackPackage = runCatching {
                     withContext(Dispatchers.IO) {
-                        runCatching { ImageStorage.clearAdaptiveImages(context) }
+                        createCurrentThemePackage(context, ThemePackageOptions()).getOrThrow()
                     }
+                }.getOrNull()
+                // Applying copies every extracted image and rewrites the appearance settings.
+                // Keeping it off the main thread avoids an ANR while a large package is promoted.
+                val applied = runCatching {
+                    withContext(Dispatchers.IO) { applyImportedTheme(context, pending, options, clearFirst = true) }
                 }
-                pending.temporaryFiles().forEach { path ->
-                    runCatching { File(path).delete() }
-                }
-                _uiState.update {
-                    it.copy(
-                        pendingImportTheme = null,
-                        showThemeImportDialog = false,
-                        adaptiveThemeActive = false,
-                    )
-                }
-                val rolledBack = rollbackPackage != null && runCatching {
-                    withContext(NonCancellable + Dispatchers.IO) {
-                        val restored = ThemePackageStorage.import(context, Uri.fromFile(rollbackPackage))
-                            .getOrNull() ?: return@withContext false
-                        applyImportedTheme(context, restored, ThemePackageOptions())
+                if (applied.isFailure) {
+                    AdaptiveThemeStore.clear(repo)
+                    if (pending.isAdaptive) {
+                        withContext(Dispatchers.IO) {
+                            runCatching { ImageStorage.clearAdaptiveImages(context) }
+                        }
                     }
-                }.isSuccess
+                    pending.temporaryFiles().forEach { path ->
+                        runCatching { File(path).delete() }
+                    }
+                    _uiState.update {
+                        it.copy(adaptiveThemeActive = false)
+                    }
+                    val rolledBack = rollbackPackage != null && runCatching {
+                        withContext(NonCancellable + Dispatchers.IO) {
+                            val restored = ThemePackageStorage.import(context, Uri.fromFile(rollbackPackage))
+                                .getOrNull() ?: return@withContext false
+                            applyImportedTheme(context, restored, ThemePackageOptions())
+                        }
+                    }.isSuccess
+                    Toast.makeText(
+                        ksuApp,
+                        if (rolledBack) R.string.theme_import_failed_restored else R.string.theme_import_failed,
+                        Toast.LENGTH_LONG,
+                    ).show()
+                    return@launch
+                }
+                // A normal import is a permanent choice; it supersedes any running trial.
+                ThemeTrialManager.clear(context)
+                Toast.makeText(ksuApp, R.string.theme_import_success, Toast.LENGTH_SHORT).show()
+            } finally {
                 rollbackPackage?.let { file -> runCatching { file.delete() } }
-                Toast.makeText(
-                    ksuApp,
-                    if (rolledBack) R.string.theme_import_failed_restored else R.string.theme_import_failed,
-                    Toast.LENGTH_LONG,
-                ).show()
-                return@launch
             }
-            rollbackPackage?.let { file -> runCatching { file.delete() } }
-            // A normal import is a permanent choice; it supersedes any running trial.
-            ThemeTrialManager.clear(context)
-            _uiState.update {
-                it.copy(
-                    pendingImportTheme = null,
-                    showThemeImportDialog = false,
-                )
-            }
-            Toast.makeText(ksuApp, R.string.theme_import_success, Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -1251,7 +1594,7 @@ homePillScale = if (options.homeCardDisplay) source.homePillScale else null,
         withContext(NonCancellable + Dispatchers.IO) {
             runCatching {
                 if (ThemeTrialManager.activeBackup(context) == null) {
-                    val backup = createCurrentThemePackage(context).getOrThrow()
+                    val backup = createCurrentThemePackage(context, ThemePackageOptions()).getOrThrow()
                     val target = ThemeTrialManager.backupFile(context)
                     target.parentFile?.mkdirs()
                     backup.copyTo(target, overwrite = true)
@@ -1348,6 +1691,30 @@ homePillScale = if (options.homeCardDisplay) source.homePillScale else null,
                 isSystemWallpaperBusy = false,
             )
         }
+        // Dynamic media follows the same rule: a package that does not mention it clears the
+        // previous wallpaper, while a package that carries it keeps the current one when the
+        // user unticked the option.
+        val dynamicWallpaperOptionAvailable =
+            imported.dynamicWallpaperPath != null ||
+                imported.data.dynamic?.hasWallpaper != null
+        if (options.dynamicWallpaper || !dynamicWallpaperOptionAvailable) {
+            wallpaperGeneration++
+            ImageStorage.clearDynamicWallpaper(context)
+            repo.dynamicWallpaperPath = ""
+            repo.dynamicWallpaperUpdatedAt = 0L
+            repo.dynamicWallpaperFit = 1
+            repo.dynamicWallpaperZoom = 1f
+            repo.dynamicWallpaperOffsetX = 0f
+            repo.dynamicWallpaperOffsetY = 0f
+            updated = updated.copy(
+                dynamicWallpaperPath = "",
+                dynamicWallpaperUpdatedAt = 0L,
+                dynamicWallpaperFit = 1,
+                dynamicWallpaperZoom = 1f,
+                dynamicWallpaperOffsetX = 0f,
+                dynamicWallpaperOffsetY = 0f,
+            )
+        }
         if (options.backgroundAppearance) {
             val defaultBlur = ImageStorage.defaultBackgroundBlurPercent(context)
             repo.cardBackgroundAlphaPercent = ImageStorage.DEFAULT_CARD_ALPHA
@@ -1371,6 +1738,26 @@ homePillScale = if (options.homeCardDisplay) source.homePillScale else null,
             ImageStorage.clearHomeCardImage(context)
             repo.homeCardImagePath = ""
             updated = updated.copy(homeCardImagePath = "")
+        }
+        val dynamicHomeCardOptionAvailable =
+            imported.dynamicHomeCardPath != null ||
+                imported.data.dynamic?.hasHomeCard != null
+        if (options.dynamicHomeCard || !dynamicHomeCardOptionAvailable) {
+            ImageStorage.clearDynamicHomeCard(context)
+            repo.dynamicHomeCardPath = ""
+            repo.dynamicHomeCardUpdatedAt = 0L
+            repo.dynamicHomeCardFit = 1
+            repo.dynamicHomeCardZoom = 1f
+            repo.dynamicHomeCardOffsetX = 0f
+            repo.dynamicHomeCardOffsetY = 0f
+            updated = updated.copy(
+                dynamicHomeCardPath = "",
+                dynamicHomeCardUpdatedAt = 0L,
+                dynamicHomeCardFit = 1,
+                dynamicHomeCardZoom = 1f,
+                dynamicHomeCardOffsetX = 0f,
+                dynamicHomeCardOffsetY = 0f,
+            )
         }
         // Same rule as the card image: a package without sticker data clears the previous
         // stickers; the package stickers are imported afterward when it has them.
@@ -1423,12 +1810,16 @@ homePillScale = if (options.homeCardDisplay) source.homePillScale else null,
             repo.enableProgressiveBlur = false
             repo.enableFloatingBottomBar = false
             repo.enableFloatingBottomBarBlur = false
+            repo.topBarStyle = 0
+            repo.topBarPillFade = true
             repo.enableNavigationBadge = true
             updated = updated.copy(
                 enableBlur = false,
                 enableProgressiveBlur = false,
                 enableFloatingBottomBar = false,
                 enableFloatingBottomBarBlur = false,
+                topBarStyle = 0,
+                topBarPillFade = true,
                 enableNavigationBadge = true,
             )
         }
@@ -1502,6 +1893,8 @@ homePillScale = if (options.homeCardDisplay) source.homePillScale else null,
                 uiMode = null,
                 enableFloatingBottomBar = null,
                 enableFloatingBottomBarBlur = null,
+                topBarStyle = null,
+                topBarPillFade = null,
                 enableNavigationBadge = null,
                 enablePredictiveBack = null,
                 enableSwipeDismiss = null,
@@ -1604,6 +1997,8 @@ homePillScale = if (options.homeCardDisplay) source.homePillScale else null,
 
         var floatingBottomBar = current.enableFloatingBottomBar
         var floatingBottomBarBlur = current.enableFloatingBottomBarBlur
+        var topBarStyle = current.topBarStyle
+        var topBarPillFade = current.topBarPillFade
         var navigationBadge = current.enableNavigationBadge
         var predictiveBack = repo.enablePredictiveBack
         var swipeDismiss = repo.enableSwipeDismiss
@@ -1624,9 +2019,13 @@ homePillScale = if (options.homeCardDisplay) source.homePillScale else null,
             }
             floatingBottomBar = data.enableFloatingBottomBar ?: current.enableFloatingBottomBar
             floatingBottomBarBlur = data.enableFloatingBottomBarBlur ?: current.enableFloatingBottomBarBlur
+            topBarStyle = data.topBarStyle?.coerceIn(0, 2) ?: current.topBarStyle
+            topBarPillFade = data.topBarPillFade ?: current.topBarPillFade
             navigationBadge = data.enableNavigationBadge ?: current.enableNavigationBadge
             repo.enableFloatingBottomBar = floatingBottomBar
             repo.enableFloatingBottomBarBlur = floatingBottomBarBlur
+            repo.topBarStyle = topBarStyle
+            repo.topBarPillFade = topBarPillFade
             repo.enableNavigationBadge = navigationBadge
         }
 
@@ -1669,6 +2068,8 @@ homePillScale = if (options.homeCardDisplay) source.homePillScale else null,
 
         var backgroundUri = current.customBackgroundUri
         var homeCardImagePath = current.homeCardImagePath
+        var dynamicWallpaperPath = current.dynamicWallpaperPath
+        var dynamicHomeCardPath = current.dynamicHomeCardPath
         if (options.backgroundImage) {
             if (imported.backgroundPath != null) {
                 backgroundUri = ImageStorage.replace(context, File(imported.backgroundPath)) ?: ""
@@ -1699,6 +2100,70 @@ homePillScale = if (options.homeCardDisplay) source.homePillScale else null,
             }
         } else if (imported.cardBackgroundPath != null) {
             runCatching { File(imported.cardBackgroundPath).delete() }
+        }
+
+        if (options.dynamicWallpaper) {
+            val importedDynamic = imported.dynamicWallpaperPath
+                ?.let(::File)
+                ?.takeIf { it.isFile }
+            if (importedDynamic != null) {
+                when (val applied = ImageStorage.adoptDynamicWallpaper(context, importedDynamic)) {
+                    is ImageStorage.DynamicWallpaperResult.Ready -> {
+                        repo.dynamicWallpaperPath = applied.path
+                        repo.dynamicWallpaperUpdatedAt = System.currentTimeMillis()
+                        dynamicWallpaperPath = applied.path
+                        data.dynamic?.wallpaperTransform?.sanitized()?.let { geometry ->
+                            repo.dynamicWallpaperFit = geometry.fit
+                            repo.dynamicWallpaperZoom = geometry.zoom
+                            repo.dynamicWallpaperOffsetX = geometry.offsetX
+                            repo.dynamicWallpaperOffsetY = geometry.offsetY
+                        }
+                    }
+
+                    else -> error("Dynamic wallpaper could not be applied")
+                }
+            } else if (data.dynamic?.hasWallpaper == false) {
+                ImageStorage.clearDynamicWallpaper(context)
+                repo.dynamicWallpaperPath = ""
+                repo.dynamicWallpaperUpdatedAt = System.currentTimeMillis()
+                repo.dynamicWallpaperFit = 1
+                repo.dynamicWallpaperZoom = 1f
+                repo.dynamicWallpaperOffsetX = 0f
+                repo.dynamicWallpaperOffsetY = 0f
+                dynamicWallpaperPath = ""
+            }
+        }
+
+        if (options.dynamicHomeCard) {
+            val importedCard = imported.dynamicHomeCardPath
+                ?.let(::File)
+                ?.takeIf { it.isFile }
+            if (importedCard != null) {
+                when (val applied = ImageStorage.adoptDynamicHomeCard(context, importedCard)) {
+                    is ImageStorage.DynamicWallpaperResult.Ready -> {
+                        repo.dynamicHomeCardPath = applied.path
+                        repo.dynamicHomeCardUpdatedAt = System.currentTimeMillis()
+                        dynamicHomeCardPath = applied.path
+                        data.dynamic?.homeCardTransform?.sanitized()?.let { geometry ->
+                            repo.dynamicHomeCardFit = geometry.fit
+                            repo.dynamicHomeCardZoom = geometry.zoom
+                            repo.dynamicHomeCardOffsetX = geometry.offsetX
+                            repo.dynamicHomeCardOffsetY = geometry.offsetY
+                        }
+                    }
+
+                    else -> error("Dynamic card background could not be applied")
+                }
+            } else if (data.dynamic?.hasHomeCard == false) {
+                ImageStorage.clearDynamicHomeCard(context)
+                repo.dynamicHomeCardPath = ""
+                repo.dynamicHomeCardUpdatedAt = System.currentTimeMillis()
+                repo.dynamicHomeCardFit = 1
+                repo.dynamicHomeCardZoom = 1f
+                repo.dynamicHomeCardOffsetX = 0f
+                repo.dynamicHomeCardOffsetY = 0f
+                dynamicHomeCardPath = ""
+            }
         }
 
         if (options.stickers) {
@@ -1835,8 +2300,12 @@ homePillScale = if (options.homeCardDisplay) source.homePillScale else null,
             bottomBarIcons = repo.bottomBarIcons
             backgroundUri = repo.customBackgroundUri
             homeCardImagePath = repo.homeCardImagePath
+            dynamicWallpaperPath = repo.dynamicWallpaperPath
+            dynamicHomeCardPath = repo.dynamicHomeCardPath
             floatingBottomBar = repo.enableFloatingBottomBar
             floatingBottomBarBlur = repo.enableFloatingBottomBarBlur
+            topBarStyle = repo.topBarStyle
+            topBarPillFade = repo.topBarPillFade
             navigationBadge = repo.enableNavigationBadge
             predictiveBack = repo.enablePredictiveBack
             swipeDismiss = repo.enableSwipeDismiss
@@ -1874,6 +2343,18 @@ homePillScale = if (options.homeCardDisplay) source.homePillScale else null,
                 customBackgroundUri = backgroundUri,
                 customBackgroundUpdatedAt = repo.customBackgroundUpdatedAt,
                 homeCardImagePath = homeCardImagePath,
+                dynamicWallpaperPath = dynamicWallpaperPath,
+                dynamicWallpaperUpdatedAt = repo.dynamicWallpaperUpdatedAt,
+                dynamicWallpaperFit = repo.dynamicWallpaperFit,
+                dynamicWallpaperZoom = repo.dynamicWallpaperZoom,
+                dynamicWallpaperOffsetX = repo.dynamicWallpaperOffsetX,
+                dynamicWallpaperOffsetY = repo.dynamicWallpaperOffsetY,
+                dynamicHomeCardPath = dynamicHomeCardPath,
+                dynamicHomeCardUpdatedAt = repo.dynamicHomeCardUpdatedAt,
+                dynamicHomeCardFit = repo.dynamicHomeCardFit,
+                dynamicHomeCardZoom = repo.dynamicHomeCardZoom,
+                dynamicHomeCardOffsetX = repo.dynamicHomeCardOffsetX,
+                dynamicHomeCardOffsetY = repo.dynamicHomeCardOffsetY,
                 hideHomeCardStatusText = hideHomeCardStatusText,
                 hideHomeCardDecoration = hideHomeCardDecoration,
                 homeCardStickers = homeCardStickers,
@@ -1895,6 +2376,8 @@ homePillScale = HomeStatusStyle.coercePillScale(repo.homePillScale),
                 systemWallpaperPath = if (replacingBackground) "" else current.systemWallpaperPath,
                 enableFloatingBottomBar = floatingBottomBar,
                 enableFloatingBottomBarBlur = floatingBottomBarBlur,
+                topBarStyle = topBarStyle,
+                topBarPillFade = topBarPillFade,
                 enableNavigationBadge = navigationBadge,
                 enablePredictiveBack = predictiveBack,
                 enableSwipeDismiss = swipeDismiss,
@@ -2070,6 +2553,12 @@ homePillScale = if (options.homeCardDisplay) variant.data.homePillScale else nul
                 } else {
                     null
                 },
+                topBarStyle = if (options.interfaceSwitches) variant.data.topBarStyle else null,
+                topBarPillFade = if (options.interfaceSwitches) {
+                    variant.data.topBarPillFade
+                } else {
+                    null
+                },
                 enableNavigationBadge = if (options.interfaceSwitches) {
                     variant.data.enableNavigationBadge
                 } else {
@@ -2124,6 +2613,8 @@ homePillScale = if (options.homeCardDisplay) variant.data.homePillScale else nul
             AdaptiveThemeStore.sync(repo, isEffectiveDarkMode(ksuApp))
             val systemWallpaperPath = ImageStorage.systemWallpaperFile(ksuApp)
                 .takeIf { it.isFile }?.absolutePath.orEmpty()
+            val dynamicWallpaperPath = ImageStorage.dynamicWallpaperFile(ksuApp)?.absolutePath.orEmpty()
+            val dynamicHomeCardPath = ImageStorage.dynamicHomeCardFile(ksuApp)?.absolutePath.orEmpty()
             _uiState.update {
                 it.copy(
                     themeMode = repo.themeMode,
@@ -2133,6 +2624,21 @@ homePillScale = if (options.homeCardDisplay) variant.data.homePillScale else nul
                     colorSpec = repo.colorSpec,
                     customBackgroundUri = repo.customBackgroundUri,
                     customBackgroundUpdatedAt = repo.customBackgroundUpdatedAt,
+                    dynamicWallpaperPath = dynamicWallpaperPath,
+                    dynamicWallpaperUpdatedAt = repo.dynamicWallpaperUpdatedAt,
+                    dynamicWallpaperMuted = repo.dynamicWallpaperMuted,
+                    dynamicWallpaperFit = repo.dynamicWallpaperFit,
+                    dynamicWallpaperZoom = repo.dynamicWallpaperZoom,
+                    dynamicWallpaperOffsetX = repo.dynamicWallpaperOffsetX,
+                    dynamicWallpaperOffsetY = repo.dynamicWallpaperOffsetY,
+                    dynamicWallpaperFps = repo.dynamicWallpaperFps,
+                    dynamicWallpaperSpeed = repo.dynamicWallpaperSpeed,
+                    dynamicHomeCardPath = dynamicHomeCardPath,
+                    dynamicHomeCardUpdatedAt = repo.dynamicHomeCardUpdatedAt,
+                    dynamicHomeCardFit = repo.dynamicHomeCardFit,
+                    dynamicHomeCardZoom = repo.dynamicHomeCardZoom,
+                    dynamicHomeCardOffsetX = repo.dynamicHomeCardOffsetX,
+                    dynamicHomeCardOffsetY = repo.dynamicHomeCardOffsetY,
                     useSystemWallpaper = repo.useSystemWallpaper && systemWallpaperPath.isNotEmpty(),
                     systemWallpaperPath = systemWallpaperPath,
                     cardBackgroundAlphaPercent = repo.cardBackgroundAlphaPercent,
@@ -2144,6 +2650,8 @@ homePillScale = if (options.homeCardDisplay) variant.data.homePillScale else nul
                     homeCardStickers = repo.homeCardStickers,
                     enableFloatingBottomBar = repo.enableFloatingBottomBar,
                     enableFloatingBottomBarBlur = repo.enableFloatingBottomBarBlur,
+                    topBarStyle = repo.topBarStyle,
+                    topBarPillFade = repo.topBarPillFade,
                     enableNavigationBadge = repo.enableNavigationBadge,
                     enablePredictiveBack = repo.enablePredictiveBack,
                     enableSwipeDismiss = repo.enableSwipeDismiss,
@@ -2166,7 +2674,13 @@ homePillScale = if (options.homeCardDisplay) variant.data.homePillScale else nul
                 return@launch
             }
             val current = AdaptiveThemeStore.loadDraft(repo) ?: AdaptiveThemeDraft()
-            val updated = if (dark) current.copy(dark = variant) else current.copy(light = variant)
+            val dynamic = withContext(Dispatchers.IO) { snapshotDraftDynamic(context) }
+            if (dynamic == null) {
+                Toast.makeText(ksuApp, R.string.theme_adaptive_capture_failed, Toast.LENGTH_SHORT).show()
+                return@launch
+            }
+            val updated = (if (dark) current.copy(dark = variant) else current.copy(light = variant))
+                .copy(dynamic = dynamic)
             AdaptiveThemeStore.saveDraft(repo, updated)
             // The previously archived package no longer matches the edited draft.
             publishDraftFlags(updated)
@@ -2194,6 +2708,7 @@ homePillScale = if (options.homeCardDisplay) variant.data.homePillScale else nul
                 ImageStorage.clearAdaptiveHomeCardImage(context, dark = true, draft = true)
                 ImageStorage.clearAdaptiveHomeCardStickers(context, dark = false, draft = true)
                 ImageStorage.clearAdaptiveHomeCardStickers(context, dark = true, draft = true)
+                ImageStorage.clearAdaptiveDraftDynamicMedia(context)
             }
             publishDraftFlags(null)
             Toast.makeText(ksuApp, R.string.theme_adaptive_draft_cleared, Toast.LENGTH_SHORT).show()
@@ -2217,6 +2732,13 @@ homePillScale = if (options.homeCardDisplay) variant.data.homePillScale else nul
                 Toast.makeText(ksuApp, R.string.theme_adaptive_capture_failed, Toast.LENGTH_SHORT).show()
                 return@launch
             }
+            val dynamicApplied = withContext(Dispatchers.IO) {
+                applyDraftDynamic(context, draft.dynamic)
+            }
+            if (!dynamicApplied) {
+                Toast.makeText(ksuApp, R.string.theme_adaptive_capture_failed, Toast.LENGTH_SHORT).show()
+                return@launch
+            }
             val state = AdaptiveThemeState(light = light, dark = darkVariant)
             AdaptiveThemeStore.save(repo, state)
             val dark = isEffectiveDarkMode(context)
@@ -2225,6 +2747,108 @@ homePillScale = if (options.homeCardDisplay) variant.data.homePillScale else nul
             refreshAdaptiveAppearance()
             Toast.makeText(ksuApp, R.string.theme_adaptive_applied, Toast.LENGTH_SHORT).show()
         }
+    }
+
+    /**
+     * Copies the live dynamic media into draft-only slots. Both captures write the same snapshot
+     * because a dynamic wallpaper is global and shared by the light/dark variants.
+     */
+    private suspend fun snapshotDraftDynamic(context: Context): AdaptiveDynamicSnapshot? =
+        withContext(Dispatchers.IO) {
+            val wallpaperSource = ImageStorage.dynamicWallpaperFile(context)
+            val wallpaperPath = if (wallpaperSource != null) {
+                // A real file that cannot be copied must fail the capture instead of recording
+                // an empty snapshot that would clear the wallpaper when the draft is applied.
+                ImageStorage.replaceAdaptiveDraftDynamicMedia(
+                    context,
+                    wallpaperSource,
+                    homeCard = false,
+                ) ?: return@withContext null
+            } else {
+                ImageStorage.clearAdaptiveDraftDynamicMedia(context, homeCard = false)
+                ""
+            }
+            val cardSource = ImageStorage.dynamicHomeCardFile(context)
+            val cardPath = if (cardSource != null) {
+                ImageStorage.replaceAdaptiveDraftDynamicMedia(
+                    context,
+                    cardSource,
+                    homeCard = true,
+                ) ?: return@withContext null
+            } else {
+                ImageStorage.clearAdaptiveDraftDynamicMedia(context, homeCard = true)
+                ""
+            }
+            AdaptiveDynamicSnapshot(
+                wallpaperPath = wallpaperPath,
+                homeCardPath = cardPath,
+                wallpaperTransform = DynamicWallpaperGeometry(
+                    fit = repo.dynamicWallpaperFit,
+                    zoom = repo.dynamicWallpaperZoom,
+                    offsetX = repo.dynamicWallpaperOffsetX,
+                    offsetY = repo.dynamicWallpaperOffsetY,
+                ).sanitized(),
+                homeCardTransform = DynamicWallpaperGeometry(
+                    fit = repo.dynamicHomeCardFit,
+                    zoom = repo.dynamicHomeCardZoom,
+                    offsetX = repo.dynamicHomeCardOffsetX,
+                    offsetY = repo.dynamicHomeCardOffsetY,
+                ).sanitized(),
+            )
+        }
+
+    /**
+     * Applies the draft's dynamic media to the live slots. A null snapshot means the draft was
+     * written by a build that predates dynamic wallpapers, so the current one is left alone.
+     */
+    private suspend fun applyDraftDynamic(
+        context: Context,
+        snapshot: AdaptiveDynamicSnapshot?,
+    ): Boolean = withContext(Dispatchers.IO) {
+        if (snapshot == null) return@withContext true
+        runCatching {
+            val now = System.currentTimeMillis()
+            val wallpaperFile = snapshot.wallpaperPath
+                .takeIf { it.isNotBlank() }
+                ?.let { path -> File(path).takeIf { file -> file.isFile } }
+            if (wallpaperFile != null) {
+                val applied = ImageStorage.adoptDynamicWallpaper(context, wallpaperFile)
+                check(applied is ImageStorage.DynamicWallpaperResult.Ready) {
+                    "Draft dynamic wallpaper is invalid"
+                }
+                repo.dynamicWallpaperPath = applied.path
+            } else {
+                ImageStorage.clearDynamicWallpaper(context)
+                repo.dynamicWallpaperPath = ""
+            }
+            repo.dynamicWallpaperUpdatedAt = now
+            val wallpaperGeometry = snapshot.wallpaperTransform.sanitized()
+            repo.dynamicWallpaperFit = wallpaperGeometry.fit
+            repo.dynamicWallpaperZoom = wallpaperGeometry.zoom
+            repo.dynamicWallpaperOffsetX = wallpaperGeometry.offsetX
+            repo.dynamicWallpaperOffsetY = wallpaperGeometry.offsetY
+
+            val cardFile = snapshot.homeCardPath
+                .takeIf { it.isNotBlank() }
+                ?.let { path -> File(path).takeIf { file -> file.isFile } }
+            if (cardFile != null) {
+                val applied = ImageStorage.adoptDynamicHomeCard(context, cardFile)
+                check(applied is ImageStorage.DynamicWallpaperResult.Ready) {
+                    "Draft dynamic card background is invalid"
+                }
+                repo.dynamicHomeCardPath = applied.path
+            } else {
+                ImageStorage.clearDynamicHomeCard(context)
+                repo.dynamicHomeCardPath = ""
+            }
+            repo.dynamicHomeCardUpdatedAt = now
+            val cardGeometry = snapshot.homeCardTransform.sanitized()
+            repo.dynamicHomeCardFit = cardGeometry.fit
+            repo.dynamicHomeCardZoom = cardGeometry.zoom
+            repo.dynamicHomeCardOffsetX = cardGeometry.offsetX
+            repo.dynamicHomeCardOffsetY = cardGeometry.offsetY
+            true
+        }.getOrDefault(false)
     }
 
     private suspend fun promoteDraftVariant(
@@ -2299,7 +2923,7 @@ homePillScale = if (options.homeCardDisplay) variant.data.homePillScale else nul
                     context.cacheDir,
                     "theme_upload_adaptive_${System.currentTimeMillis()}.veilsu",
                 )
-                ThemePackageStorage.exportToFile(
+                val report = ThemePackageStorage.exportToFile(
                     file = file,
                     data = payload.data,
                     backgroundFile = payload.backgroundFile,
@@ -2307,7 +2931,18 @@ homePillScale = if (options.homeCardDisplay) variant.data.homePillScale else nul
                     cardStickerFiles = payload.stickerFiles,
                     bottomBarIconFiles = payload.bottomBarIconFiles,
                     adaptive = payload.adaptive,
+                    dynamicWallpaperFile = payload.dynamicWallpaperFile,
+                    dynamicHomeCardFile = payload.dynamicHomeCardFile,
                 ).getOrThrow()
+                if (report.skippedDynamic) {
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(
+                            ksuApp,
+                            R.string.theme_export_dynamic_skipped,
+                            Toast.LENGTH_LONG,
+                        ).show()
+                    }
+                }
                 file
             }
         }
@@ -2318,6 +2953,10 @@ homePillScale = if (options.homeCardDisplay) variant.data.homePillScale else nul
                 adaptiveDraftLightCaptured = draft?.light != null,
                 adaptiveDraftDarkCaptured = draft?.dark != null,
                 adaptiveDraftComplete = draft?.complete == true,
+                adaptiveDraftDynamicWallpaper =
+                    draft?.dynamic?.wallpaperPath?.isNotBlank() == true,
+                adaptiveDraftDynamicHomeCard =
+                    draft?.dynamic?.homeCardPath?.isNotBlank() == true,
                 adaptiveDraftRevision = it.adaptiveDraftRevision + 1,
             )
         }
@@ -2412,6 +3051,8 @@ homePillScale = repo.homePillScale,
                     uiMode = repo.uiMode,
                     enableFloatingBottomBar = repo.enableFloatingBottomBar,
                     enableFloatingBottomBarBlur = repo.enableFloatingBottomBarBlur,
+                    topBarStyle = repo.topBarStyle,
+                    topBarPillFade = repo.topBarPillFade,
                     enableNavigationBadge = repo.enableNavigationBadge,
                     enablePredictiveBack = repo.enablePredictiveBack,
                     enableSwipeDismiss = repo.enableSwipeDismiss,
@@ -2457,6 +3098,8 @@ homePillScale = repo.homePillScale,
         viewModelScope.launch {
             val defaultBlur = ImageStorage.defaultBackgroundBlurPercent(ksuApp)
             ImageStorage.clear(ksuApp)
+            ImageStorage.clearDynamicWallpaper(ksuApp)
+            ImageStorage.clearDynamicHomeCard(ksuApp)
             ImageStorage.clearHomeCardImage(ksuApp)
             ImageStorage.clearHomeCardSticker(ksuApp)
             ImageStorage.clearBottomBarIcons(ksuApp)
@@ -2466,6 +3109,21 @@ homePillScale = repo.homePillScale,
 
             repo.customBackgroundUri = ""
             repo.customBackgroundUpdatedAt = 0L
+            repo.dynamicWallpaperPath = ""
+            repo.dynamicWallpaperUpdatedAt = 0L
+            repo.dynamicWallpaperFit = 1
+            repo.dynamicWallpaperZoom = 1f
+            repo.dynamicWallpaperOffsetX = 0f
+            repo.dynamicWallpaperOffsetY = 0f
+            repo.dynamicWallpaperMuted = true
+            repo.dynamicWallpaperFps = 0
+            repo.dynamicWallpaperSpeed = 1f
+            repo.dynamicHomeCardPath = ""
+            repo.dynamicHomeCardUpdatedAt = 0L
+            repo.dynamicHomeCardFit = 1
+            repo.dynamicHomeCardZoom = 1f
+            repo.dynamicHomeCardOffsetX = 0f
+            repo.dynamicHomeCardOffsetY = 0f
             repo.useSystemWallpaper = false
             repo.homeCardImagePath = ""
             repo.homeCardStickers = emptyList()
@@ -2501,6 +3159,21 @@ homePillScale = repo.homePillScale,
                 it.copy(
                     customBackgroundUri = "",
                     customBackgroundUpdatedAt = 0L,
+                    dynamicWallpaperPath = "",
+                    dynamicWallpaperUpdatedAt = 0L,
+                    dynamicWallpaperFit = 1,
+                    dynamicWallpaperZoom = 1f,
+                    dynamicWallpaperOffsetX = 0f,
+                    dynamicWallpaperOffsetY = 0f,
+                    dynamicWallpaperMuted = true,
+                    dynamicWallpaperFps = 0,
+                    dynamicWallpaperSpeed = 1f,
+                    dynamicHomeCardPath = "",
+                    dynamicHomeCardUpdatedAt = 0L,
+                    dynamicHomeCardFit = 1,
+                    dynamicHomeCardZoom = 1f,
+                    dynamicHomeCardOffsetX = 0f,
+                    dynamicHomeCardOffsetY = 0f,
                     useSystemWallpaper = false,
                     systemWallpaperPath = "",
                     isSystemWallpaperBusy = false,
@@ -2649,6 +3322,11 @@ homePillScale = repo.homePillScale,
         _uiState.update { it.copy(bottomBarSectionExpanded = expanded) }
     }
 
+    fun setTopBarSectionExpanded(expanded: Boolean) {
+        repo.topBarSectionExpanded = expanded
+        _uiState.update { it.copy(topBarSectionExpanded = expanded) }
+    }
+
     fun setInteractionSectionExpanded(expanded: Boolean) {
         repo.interactionSectionExpanded = expanded
         _uiState.update { it.copy(interactionSectionExpanded = expanded) }
@@ -2700,7 +3378,7 @@ homePillScale = repo.homePillScale,
     fun setThemeStoreBaseUrl(url: String) {
         val trimmed = url.trim()
         repo.themeStoreBaseUrl = trimmed
-        _uiState.update { it.copy(themeStoreBaseUrl = trimmed) }
+        _uiState.update { it.copy(themeStoreBaseUrl = repo.themeStoreBaseUrl) }
     }
 
     fun setThemeStoreToken(token: String) {
@@ -2839,6 +3517,17 @@ homePillScale = repo.homePillScale,
     fun setEnableFloatingBottomBarBlur(enabled: Boolean) {
         repo.enableFloatingBottomBarBlur = enabled
         _uiState.update { it.copy(enableFloatingBottomBarBlur = enabled) }
+    }
+
+    fun setTopBarStyle(style: Int) {
+        val coerced = style.coerceIn(0, 2)
+        repo.topBarStyle = coerced
+        _uiState.update { it.copy(topBarStyle = coerced) }
+    }
+
+    fun setTopBarPillFade(enabled: Boolean) {
+        repo.topBarPillFade = enabled
+        _uiState.update { it.copy(topBarPillFade = enabled) }
     }
 
     fun setEnableNavigationBadge(enabled: Boolean) {
@@ -3057,12 +3746,19 @@ homePillScale = repo.homePillScale,
             useSystemWallpaper = useSystemWallpaper,
             isSystemWallpaperBusy = isSystemWallpaperBusy,
             customBackgroundUri = customBackgroundUri,
+            dynamicWallpaperPath = dynamicWallpaperPath,
+            dynamicWallpaperUpdatedAt = dynamicWallpaperUpdatedAt,
+            dynamicWallpaperMuted = dynamicWallpaperMuted,
+            dynamicHomeCardPath = dynamicHomeCardPath,
+            dynamicHomeCardUpdatedAt = dynamicHomeCardUpdatedAt,
             cardBackgroundAlphaPercent = cardBackgroundAlphaPercent,
             customBackgroundBlurPercent = customBackgroundBlurPercent,
             customBackgroundScrimPercent = customBackgroundScrimPercent,
             enableProgressiveBlur = enableProgressiveBlur,
             enableFloatingBottomBar = enableFloatingBottomBar,
             enableFloatingBottomBarBlur = enableFloatingBottomBarBlur,
+            topBarStyle = topBarStyle,
+            topBarPillFade = topBarPillFade,
             enableNavigationBadge = enableNavigationBadge,
             pageScale = pageScale,
             customHomeTitle = customHomeTitle,
@@ -3071,9 +3767,9 @@ homePillScale = repo.homePillScale,
             hideHomeCardDecoration = hideHomeCardDecoration,
             homeCardStickers = homeCardStickers,
             homeLayout = homeLayout,
-homeStatusAlignment = homeStatusAlignment,
+            homeStatusAlignment = homeStatusAlignment,
             homeStatusScale = homeStatusScale,
-homePillScale = homePillScale,
+            homePillScale = homePillScale,
             homeStatusWidthFraction = homeStatusWidthFraction,
             homeCardImageStyle = homeCardImageStyle,
             showHomeCardImageWithoutBackground = showHomeCardImageWithoutBackground,
@@ -3081,6 +3777,8 @@ homePillScale = homePillScale,
             adaptiveDraftLightCaptured = adaptiveDraftLightCaptured,
             adaptiveDraftDarkCaptured = adaptiveDraftDarkCaptured,
             adaptiveDraftComplete = adaptiveDraftComplete,
+            adaptiveDraftDynamicWallpaper = adaptiveDraftDynamicWallpaper,
+            adaptiveDraftDynamicHomeCard = adaptiveDraftDynamicHomeCard,
             themeMode = themeMode,
             colorStyle = colorStyle,
             colorSpec = colorSpec,
@@ -3092,6 +3790,7 @@ homePillScale = homePillScale,
             homeCardSectionExpanded = homeCardSectionExpanded,
             colorsSectionExpanded = colorsSectionExpanded,
             bottomBarSectionExpanded = bottomBarSectionExpanded,
+            topBarSectionExpanded = topBarSectionExpanded,
             interactionSectionExpanded = interactionSectionExpanded,
             detailsSectionExpanded = detailsSectionExpanded,
             showFullStatus = showFullStatus,
