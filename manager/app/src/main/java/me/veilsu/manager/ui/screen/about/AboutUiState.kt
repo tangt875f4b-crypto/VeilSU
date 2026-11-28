@@ -22,4 +22,5 @@ data class AboutScreenActions(
     val onSetCheckUpdate: (Boolean) -> Unit = {},
     val onSetCheckCiUpdate: (Boolean) -> Unit = {},
     val onSetCheckModuleUpdate: (Boolean) -> Unit = {},
+    val onOpenUpdateSources: () -> Unit = {},
 )

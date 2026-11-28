@@ -68,9 +68,9 @@ class AccountViewModel(application: Application) : AndroidViewModel(application)
     private val initialSources = configuredSources()
     private val _uiState = MutableStateFlow(
         AccountUiState(
-            sessions = aliasedSessions(),
+            sessions = repository.sessions.value,
             sources = initialSources,
-            selectedBaseUrl = initialSources.preferred(aliasedSessions()),
+            selectedBaseUrl = initialSources.preferred(repository.sessions.value),
             defaultUploadBaseUrl = resolveDefaultUploadBaseUrl(initialSources),
         ),
     )
@@ -78,14 +78,13 @@ class AccountViewModel(application: Application) : AndroidViewModel(application)
 
     init {
         viewModelScope.launch {
-            repository.sessions.collect {
-                val aliased = aliasedSessions()
+            repository.sessions.collect { sessions ->
                 _uiState.update { state ->
                     val selected = state.selectedBaseUrl
                         .takeIf { baseUrl -> state.sources.any { it.baseUrl == baseUrl } }
-                        ?: state.sources.preferred(aliased)
+                        ?: state.sources.preferred(sessions)
                     state.copy(
-                        sessions = aliased,
+                        sessions = sessions,
                         selectedBaseUrl = selected,
                         defaultUploadBaseUrl = resolveDefaultUploadBaseUrl(state.sources),
                     )
@@ -254,7 +253,7 @@ class AccountViewModel(application: Application) : AndroidViewModel(application)
 
     fun refresh() {
         repository.reload()
-        val sessions = aliasedSessions()
+        val sessions = repository.sessions.value
         val sources = configuredSources()
         _uiState.update { state ->
             val selected = state.selectedBaseUrl
@@ -268,26 +267,6 @@ class AccountViewModel(application: Application) : AndroidViewModel(application)
             )
         }
         refreshSelectedProfile()
-    }
-
-    /**
-     * Built-in mirrors share one account; expose a session for every mirror so
-     * auto-selecting a different one does not make the UI look signed out.
-     */
-    private fun aliasedSessions(): Map<String, AccountSession> {
-        val sessions = repository.sessions.value
-        if (sessions.isEmpty()) return sessions
-        val builtIns = ThemeStoreDefaults.BASE_URLS.mapNotNull {
-            ThemeStoreRepository.normalizeBaseUrl(it)
-        }
-        val fallback = builtIns.firstNotNullOfOrNull { sessions[it] } ?: return sessions
-        val result = sessions.toMutableMap()
-        builtIns.forEach { base ->
-            if (base !in result) {
-                result[base] = fallback.copy(baseUrl = base)
-            }
-        }
-        return result
     }
 
     private fun refreshSelectedProfile() {

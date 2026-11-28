@@ -23,7 +23,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Science
 import androidx.compose.material.icons.filled.SystemUpdate
 import androidx.compose.material.icons.filled.SystemUpdateAlt
-import androidx.compose.material3.LargeFlexibleTopAppBar
+import androidx.compose.material.icons.rounded.Cloud
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import me.veilsu.manager.ui.component.material.LargeFlexibleTopAppBar
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -66,6 +69,14 @@ fun AboutScreenMaterial(
                 title = { Text(state.title) },
                 navigationIcon = {
                     TopBarBackButton(onClick = actions.onBack)
+                },
+                actions = {
+                    IconButton(onClick = actions.onOpenUpdateSources) {
+                        Icon(
+                            imageVector = Icons.Rounded.Cloud,
+                            contentDescription = stringResource(R.string.update_sources_title),
+                        )
+                    }
                 },
                 colors = expressiveTopAppBarColors(),
                 scrollBehavior = scrollBehavior

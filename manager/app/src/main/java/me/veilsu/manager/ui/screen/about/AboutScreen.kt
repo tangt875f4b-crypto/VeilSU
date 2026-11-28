@@ -17,6 +17,7 @@ import me.veilsu.manager.R
 import me.veilsu.manager.ui.LocalUiMode
 import me.veilsu.manager.ui.UiMode
 import me.veilsu.manager.ui.navigation3.LocalNavigator
+import me.veilsu.manager.ui.navigation3.Route
 import me.veilsu.manager.ui.theme.Shapes
 import me.veilsu.manager.ui.theme.ThemeController
 import me.veilsu.manager.ui.theme.Typography
@@ -57,6 +58,7 @@ fun AboutScreen() {
         onSetCheckUpdate = viewModel::setCheckUpdate,
         onSetCheckCiUpdate = viewModel::setCheckCiUpdate,
         onSetCheckModuleUpdate = viewModel::setCheckModuleUpdate,
+        onOpenUpdateSources = { navigator.push(Route.UpdateSources) },
     )
 
     // The Material 3 Expressive page is shared by both skins; the Miuix skin has no Material theme above it.
