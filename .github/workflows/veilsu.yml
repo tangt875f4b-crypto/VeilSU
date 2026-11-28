@@ -617,6 +617,22 @@ jobs:
             -S "$SIGN_KEY_PASSWORD" \
             --strip \
             --output-name "$OUTPUT_NAME"
+    - name: Split per-arch and verify
+        run: |
+          set -eu
+          UNIVERSAL="dist/${{ steps.place.outputs.APK_STEM }}.apk"
+          test -f "$UNIVERSAL"
+          python3 split_apk_by_arch.py \
+            -i "$UNIVERSAL" \
+            -a arm64-v8a -a armeabi-v7a -a x86_64 -a riscv64 \
+            -o dist \
+            -K "$SIGN_KEYSTORE_FILE" \
+            -A "$SIGN_KEY_ALIAS" \
+            -P "$SIGN_KEYSTORE_PASSWORD" \
+            -S "$SIGN_KEY_PASSWORD"
+          rm -f "$UNIVERSAL"
+          bash verify-split.sh dist
+          ls -la dist/
       - uses: actions/upload-artifact@v4
         with:
           name: Manager
