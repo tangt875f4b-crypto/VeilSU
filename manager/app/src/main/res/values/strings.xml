@@ -314,7 +314,7 @@
     <string name="settings_section_icon_text_summary">Launcher icon and custom page text</string>
     <string name="settings_section_bottom_bar">Bottom bar &amp; navigation</string>
     <string name="settings_section_bottom_bar_summary">Custom tab icons, floating bar, glass and badges</string>
-    <string name="settings_section_interaction">Interaction &amp; gestures</string>
+    <string name="settings_section_top_bar">Top bar</string><string name="settings_section_top_bar_summary">Standard, floating or liquid glass headers; large titles fold into a centred row as you scroll</string><string name="settings_top_bar_style">Top bar style</string><string name="settings_top_bar_style_summary">Choose how page headers and their search field are drawn</string><string name="settings_top_bar_style_standard">Standard</string><string name="settings_top_bar_style_floating">Floating</string><string name="settings_top_bar_style_floating_glass">Floating glass</string><string name="settings_top_bar_pill_fade">Fade control backgrounds on scroll</string><string name="settings_top_bar_pill_fade_summary">Control backgrounds reach full opacity while the page scrolls; turn off to always show them.</string><string name="settings_section_interaction">Interaction &amp; gestures</string>
     <string name="settings_section_interaction_summary">Predictive back, swipe dismiss, pager gestures and page scale</string>
     <string name="settings_section_details">Interface details</string>
     <string name="settings_section_details_summary">Module description density</string>
@@ -390,7 +390,7 @@
     <string name="install_block_modules_list">Modules to block</string>
     <string name="install_block_modules_summary">Comma-separated module names to stop from loading at boot, e.g. oplus_secure_guard. Leave empty to block nothing.</string>
     <string name="install_block_modules_invalid">Module names may contain only letters, digits and underscores, each at most 64 characters.</string>
-    <string name="advanced_options">Advanced Options</string>
+    <string name="install_block_modules_unknown_title">Block unrecognized modules?</string><string name="install_block_modules_unknown_content">These modules are not on the known anti-root list: %1$s. If first stage init needs one of them, the device may fail to boot. Continue only if you are sure they are safe to block.</string><string name="advanced_options">Advanced Options</string>
     <string name="expand">Expand</string>
     <string name="download_channel_name">Module Downloads</string>
     <string name="download_progress_title">Downloading %s</string>
@@ -571,7 +571,7 @@
     <string name="kpm_install_failed">Load of KPM module failed</string>
     <string name="kpm_args">Parameters</string>
     <string name="kpm_control">Execute</string>
-    <string name="close_notice">Close</string>
+    <string name="kpm_commands_title">Commands</string><string name="kpm_commands_loading">Loading commands…</string><string name="kpm_commands_empty">This module did not declare any commands. Enter parameters manually.</string><string name="kpm_command_usage">Usage: %1$s</string><string name="kpm_control_visual">Visual</string><string name="kpm_control_raw">Raw args</string><string name="kpm_control_select_command">Select a command to build its arguments.</string><string name="kpm_control_preview">Argument preview</string><string name="kpm_control_fixed">Fixed: %1$s</string><string name="kpm_control_optional">Optional</string><string name="kpm_control_include">Include</string><string name="kpm_control_incomplete">Fill in the required arguments first.</string><string name="kpm_control_run">Run</string><string name="kpm_control_copy_result">Copy result</string><string name="kpm_show_help">Module help</string><string name="kpm_help_empty">No help was returned by the module.</string><string name="kpm_output">Output</string><string name="kpm_control_running">Running…</string><string name="kpm_control_failed">Command failed</string><string name="kpm_kernel_log">Kernel log</string><string name="close_notice">Close</string>
     <string name="kernel_module_notice">The following kernel module functions were developed by KernelPatch and modified to include the kernel module functions of VeilSU</string>
     <string name="kpm_control_success">Success</string>
     <string name="not_supported">Unsupported</string>
@@ -582,8 +582,8 @@
     <string name="kpm_embed_description">Load now and save for automatic loading at startup. Only install modules you trust.</string>
     <string name="invalid_file_type">Incorrect file type! Please select .kpm file</string>
     <string name="confirm_uninstall_title_with_filename">Uninstall</string>
-    <string name="confirm_uninstall_content">The following KPM will be uninstalled: %s</string>
-    <string name="cancel">Cancel</string>
+    <string name="confirm_uninstall_content">Remove %s? Its boot copy under /data/adb/kpm will be deleted even if the running kernel cannot unload it; the current boot may keep the module until a reboot.</string>
+    <string name="kpm_uninstall_file_removed_reboot">Boot copy deleted from /data/adb/kpm; the module is still loaded in this boot and will be gone after a reboot.</string><string name="cancel">Cancel</string>
     <!-- Tools -->
     <string name="settings_tools">Tools</string>
     <string name="settings_tools_summary">More advanced features.</string>
@@ -779,7 +779,7 @@
     <string name="susfs_reset_loop_paths_title">Reset Loop Paths</string>
     <string name="susfs_reset_loop_paths_message">Are you sure you want to clear all SUS loop paths? This action cannot be undone</string>
     <string name="susfs_loop_path_label">Loop Path</string>
-    <string name="susfs_loop_path_restriction_warning">Note: Only paths NOT inside /storage/ and /sdcard/ can be added via loop paths</string>
+    <string name="susfs_loop_path_restriction_warning">Note: /sdcard and /storage/emulated paths are supported (needed for FUSE app data); removable volumes under /storage/XXXX-XXXX are still rejected</string>
     <string name="susfs_invalid_loop_path">Invalid loop path</string>
     <string name="susfs_add_loop_path_failed">Failed to add loop path</string>
     <string name="susfs_edit_loop_path_failed">Failed to edit loop path</string>
@@ -827,7 +827,7 @@
     <string name="theme_adaptive_export_notice">This is an adaptive theme; both the light and dark image/style sets will be exported.</string>
     <string name="theme_adaptive_upload_notice">Adaptive theme detected. The “adaptive” tag will be added automatically on submit.</string>
     <string name="theme_adaptive_tag">Adaptive theme</string>
-    <string name="theme_adaptive_active">Adaptive theme active (follows the system light/dark mode)</string>
+    <string name="theme_dynamic_title">Dynamic wallpaper</string><string name="theme_dynamic_tag">Dynamic</string><string name="theme_adaptive_active">Adaptive theme active (follows the system light/dark mode)</string>
     <string name="theme_adaptive_active_forced">Adaptive theme active (currently fixed to %1$s; choose Follow system to resume automatic switching)</string>
     <string name="theme_adaptive_builder_title">Create adaptive theme</string>
     <string name="theme_adaptive_builder_summary">Capture a light and a dark appearance and export a package that follows the system mode</string>
@@ -881,12 +881,12 @@
     <string name="theme_opt_app_icon">App icon</string>
     <string name="theme_opt_custom_texts">Custom texts</string>
     <string name="theme_opt_interface_mode">Interface mode (Miuix / Material)</string>
-    <string name="theme_opt_interface_switches">Interface switches (blur, floating bar, glass, badge)</string>
+    <string name="theme_opt_interface_switches">Interface switches (top bar style, control background, blur, floating bar, glass, badge)</string>
     <string name="theme_opt_interaction">Interaction (predictive back, swipe dismiss, pager gesture, page scale)</string>
     <string name="theme_opt_module_display">Module display (sorting and description lines)</string>
     <string name="theme_opt_other">Other</string>
     <string name="theme_opt_bottom_bar_icons">Custom bottom bar icons</string>
-    <string name="theme_upload_to_store">Upload to theme store</string>
+    <string name="theme_opt_dynamic_wallpaper">Dynamic wallpaper</string><string name="theme_opt_dynamic_home_card">Dynamic card background</string><string name="theme_upload_to_store">Upload to theme store</string>
     <string name="settings_bottom_bar_icon_home">Home tab icon</string>
     <string name="settings_bottom_bar_icon_superuser">Superuser tab icon</string>
     <string name="settings_bottom_bar_icon_module">Modules tab icon</string>
@@ -1023,7 +1023,7 @@
     <string name="theme_store_unauthorized">Access token is missing or invalid</string>
     <string name="theme_store_default_source">Default source</string>
     <string name="theme_store_default_auto">Automatic (by region)</string>
-    <string name="theme_store_partial_failure">Some sources failed to load</string>
+    <string name="theme_store_add_default_source">Add default source</string><string name="theme_store_partial_failure">Some sources failed to load</string>
     <string name="theme_store_add_source">Add source</string>
     <string name="theme_store_new_source">New source</string>
     <string name="theme_store_source_name">Source name (optional)</string>
@@ -1229,7 +1229,7 @@
     <string name="theme_store_history_clear_title">Clear history?</string>
     <string name="theme_store_history_clear_viewed_message">Clear all viewed themes? This cannot be undone.</string>
     <string name="theme_store_history_clear_downloaded_message">Clear all downloaded themes? This cannot be undone.</string>
-    <string name="theme_store_history_empty_viewed">No viewing history yet</string>
+    <string name="theme_store_history_long_press_hint">Long-press a record to select several, then delete them together.</string><string name="theme_store_downloads_title">My downloads</string><string name="theme_store_downloads_select">Select</string><string name="theme_store_downloads_cancel_selection">Cancel selection</string><string name="theme_store_downloads_select_all">Select all</string><string name="theme_store_downloads_select_none">Clear selection</string><string name="theme_store_downloads_delete_selected">Delete (%1$d)</string><string name="theme_store_downloads_clear_all">Clear all</string><string name="theme_store_downloads_clear_title">Clear downloaded packages?</string><string name="theme_store_downloads_clear_message">Delete %1$d cached packages (%2$s) from this device? Themes that are already applied are not affected.</string><string name="theme_store_downloads_summary">%1$d packages · %2$s stored</string><string name="theme_store_downloads_empty">No downloaded packages yet</string><string name="theme_store_downloads_empty_hint">Packages downloaded from the theme store are kept here so you can apply them again offline.</string><string name="theme_store_downloads_long_press_hint">Long-press a package to select several, or use the top bar to clear them all.</string><string name="theme_store_downloads_open">Apply</string><string name="theme_store_downloads_missing">The cached package is missing; refreshing the list.</string><string name="theme_store_history_empty_viewed">No viewing history yet</string>
     <string name="theme_store_history_empty_downloaded">No download history yet</string>
     <string name="theme_store_history_missing">This theme is no longer in the catalog</string>
     <string name="theme_store_history_login_required">Sign in to sync your viewed and downloaded themes</string>
@@ -1295,7 +1295,7 @@
     <string name="theme_store_upload_restore_confirm">Republish “%1$s” to the theme store?</string>
     <string name="theme_store_sources">Theme sources</string>
     <string name="theme_store_extra_sources">Additional sources</string>
-    <string name="theme_store_sources_summary">Manage the default catalog and extra catalogs. The token is used for both downloads and submissions.</string>
+    <string name="theme_store_sources_summary">Manage the default catalog. The token is used for both downloads and submissions.</string>
     <string name="theme_store_source_endpoints">Endpoints</string>
     <string name="theme_store_expand_endpoints">Show endpoints</string>
     <string name="theme_store_collapse_endpoints">Hide endpoints</string>
@@ -1457,8 +1457,8 @@
     <string name="settings_check_ci_update_summary">Check main branch CI builds on the home page and notify when an update is available.</string>
     <string name="ci_update_busy">Checking and preparing CI update…</string>
     <string name="ci_update_unsupported_arch">Unsupported device architecture.</string>
-    <string name="ci_update_request_failed">Invalid GitHub API URL.</string>
-    <string name="ci_update_http_error">GitHub request failed (HTTP %1$d). Please try again later.</string>
+    <string name="ci_update_request_failed">Invalid update source download URL.</string>
+    <string name="ci_update_http_error">Update request failed (HTTP %1$d). Please try again later.</string>
     <string name="ci_update_download_failed">CI update failed.</string>
     <string name="ci_update_archive_too_large">CI artifact exceeds the size limit.</string>
     <string name="ci_update_invalid_apk">Invalid Manager APK or package name.</string>
@@ -1469,7 +1469,7 @@
     <string name="ci_update_install_success">Update installed successfully.</string>
     <string name="ci_update_install_failed">Update installation failed or was cancelled.</string>
     <string name="ci_update_available">New CI build available (#%1$d)</string>
-    <string name="settings_custom_background">Custom Background</string>
+    <string name="update_sources_title">Update sources</string><string name="update_sources_summary">Update checks and CI update checks use these sources. The built-in sources always stay available.</string><string name="update_sources_auto_hint">Automatic: enabled sources are checked in parallel and the fastest one is used.</string><string name="update_sources_pinned_hint">Pinned to %1$s; when it is unreachable the fastest source is used instead.</string><string name="update_sources_ping_hint">Ping measures release API latency and samples the APK download speed.</string><string name="update_sources_default_source">Built-in sources</string><string name="update_sources_codeberg_name">Codeberg mirror</string><string name="update_sources_cnb_name">CNB raw files</string><string name="update_sources_custom_sources">Custom sources</string><string name="update_sources_default_badge">Built-in</string><string name="update_sources_pinned_badge">Pinned</string><string name="update_sources_empty">No custom update sources yet.</string><string name="update_sources_platform_github">GitHub · %1$s</string><string name="update_sources_platform_gitea">Gitea / Forgejo · %1$s</string><string name="update_sources_platform_cnb">CNB · %1$s</string><string name="update_sources_platform_cnb_raw">CNB raw · %1$s</string><string name="update_sources_add">Add update source</string><string name="update_sources_add_title">Add update source</string><string name="update_sources_url">Repository URL</string><string name="update_sources_url_placeholder">https://github.com/owner/repo</string><string name="update_sources_name">Name (optional)</string><string name="update_sources_detected_github">Detected: GitHub · %1$s</string><string name="update_sources_detected_gitea">Detected: Gitea / Forgejo · %1$s</string><string name="update_sources_detected_cnb">Detected: CNB · %1$s</string><string name="update_sources_detected_cnb_raw">Detected: CNB raw · %1$s</string><string name="update_sources_invalid_url">Cannot parse the repository URL. Paste the full link.</string><string name="update_sources_duplicate">This update source already exists.</string><string name="update_sources_limit">You can add up to %1$d custom sources.</string><string name="update_sources_pin">Pin source</string><string name="update_sources_unpin">Unpin</string><string name="update_sources_ping">Ping</string><string name="update_sources_ping_all">Ping all</string><string name="update_sources_ping_idle">Not tested yet</string><string name="update_sources_ping_running">Testing…</string><string name="update_sources_ping_api_only">Latency %1$d ms</string><string name="update_sources_ping_result">Latency %1$d ms · Download %2$s</string><string name="update_sources_ping_failed">Unavailable: %1$s</string><string name="update_sources_delete">Delete</string><string name="update_sources_delete_title">Delete update source?</string><string name="update_sources_delete_message">Update checks will stop using %1$s.</string><string name="update_sources_confirm_delete">Delete</string><string name="update_sources_save">Save</string><string name="update_sources_cancel">Cancel</string><string name="update_progress_downloading_release">Downloading stable update</string><string name="update_progress_downloading_ci">Downloading CI update</string><string name="update_progress_verifying">Download complete. Verifying the package…</string><string name="update_progress_installing">Verification passed. Installing…</string><string name="update_progress_completed">Download complete. The manager will restart automatically to finish the update.</string><string name="update_progress_awaiting_user">Download complete. Confirm the installation in the system installer.</string><string name="update_progress_failed">Update failed</string><string name="update_progress_detail">%1$d%% · %2$s / %3$s · %4$s</string><string name="update_progress_detail_unknown">%1$s · %2$s</string><string name="settings_custom_background">Custom Background</string>
     <string name="settings_custom_background_summary">Pick an image, then adjust its crop for main pages</string>
     <string name="settings_use_system_wallpaper">Use System Wallpaper</string>
     <string name="settings_use_system_wallpaper_summary">Use the current launcher wallpaper as the app background</string>
@@ -1480,7 +1480,7 @@
     <string name="settings_system_wallpaper_failed">Couldn\'t read the system wallpaper</string>
     <string name="settings_crop_background">Re-crop Background</string>
     <string name="settings_crop_background_summary">Adjust the visible area, or crop with your gallery</string>
-    <string name="settings_home_card_image">Status card background</string>
+    <string name="dynamic_wallpaper_title">Dynamic Wallpaper</string><string name="dynamic_wallpaper_settings_summary">MP4 or animated WebP, up to 308 MB</string><string name="dynamic_wallpaper_limit">One file up to 308 MB. Videos stay muted unless you turn sound on.</string><string name="dynamic_home_card_limit">One file up to 308 MB. The card background is always muted.</string><string name="dynamic_wallpaper_pending">Pending</string><string name="dynamic_wallpaper_pending_title">Apply dynamic wallpaper?</string><string name="dynamic_home_card_pending_title">Apply card background?</string><string name="dynamic_wallpaper_empty_title">No dynamic wallpaper yet</string><string name="dynamic_wallpaper_empty_summary">Choose an MP4 video or animated WebP to play behind the app.</string><string name="dynamic_wallpaper_preview_failed_title">Can\'t play this wallpaper</string><string name="dynamic_wallpaper_preview_failed_summary">The codec or WebGL renderer is unavailable. Try another file.</string><string name="dynamic_wallpaper_retry">Retry preview</string><string name="dynamic_wallpaper_pick">Choose MP4 / WebP</string><string name="dynamic_wallpaper_replace">Replace wallpaper</string><string name="dynamic_home_card_replace">Replace card background</string><string name="dynamic_wallpaper_apply">Apply</string><string name="dynamic_wallpaper_discard">Discard</string><string name="dynamic_wallpaper_remove">Remove dynamic wallpaper</string><string name="dynamic_wallpaper_remove_title">Remove dynamic wallpaper?</string><string name="dynamic_home_card_remove_title">Remove card background?</string><string name="dynamic_wallpaper_remove_message">The video or animated image will be deleted from the app. The static background stays unchanged.</string><string name="dynamic_home_card_remove_message">The video or animated image will be removed from the home card. The static card image stays unchanged.</string><string name="dynamic_wallpaper_mute">Mute video</string><string name="dynamic_wallpaper_mute_summary">Play the background video without sound</string><string name="dynamic_wallpaper_format_mp4">MP4</string><string name="dynamic_wallpaper_format_webp">WebP</string><string name="dynamic_wallpaper_too_large">This file exceeds the 308 MB limit</string><string name="dynamic_wallpaper_unsupported">Only MP4 and WebP files are supported</string><string name="dynamic_wallpaper_import_failed">Couldn\'t import the wallpaper</string><string name="dynamic_wallpaper_apply_failed">Couldn\'t apply the wallpaper</string><string name="dynamic_home_card_apply_failed">Couldn\'t apply the card background</string><string name="settings_home_card_image">Status card background</string>
     <string name="settings_home_card_image_default">Using the card color</string>
     <string name="settings_home_card_image_set">Image selected</string>
     <string name="settings_home_card_image_clear">Remove card background</string>
@@ -1550,7 +1550,7 @@
     <string name="theme_category_icon_text">Icon &amp; text</string>
     <string name="theme_category_home_card">Home card</string>
     <string name="theme_category_bottom_bar">Bottom bar</string>
-    <string name="theme_category_interaction">Gestures</string>
+    <string name="theme_category_top_bar">Top bar</string><string name="theme_category_interaction">Gestures</string>
     <string name="theme_category_details">Details</string>
     <string name="theme_category_theme_package">Theme</string>
     <string name="theme_export">Export theme package</string>
@@ -1570,7 +1570,7 @@
     <string name="theme_reset_confirm_message">Card opacity, background blur and scrim will be reset. Theme colors, dynamic color and the custom background image are kept.</string>
     <string name="theme_export_success">Theme package exported</string>
     <string name="theme_export_failed">Failed to export the theme package</string>
-    <string name="theme_import_success">Theme package imported</string>
+    <string name="theme_export_dynamic_skipped">Dynamic wallpapers were left out to keep the package under 128 MB</string><string name="theme_export_package_too_large">Theme package exceeds the 128 MB limit</string><string name="theme_import_success">Theme package imported</string>
     <string name="theme_import_failed">Invalid theme package</string>
     <string name="theme_import_failed_restored">Theme import failed. Your previous appearance was restored.</string>
     <string name="theme_reset_done">Default appearance restored</string>
@@ -1766,5 +1766,5 @@
     <string name="builtin_zygisk_opt_custom_linker">Custom linker</string>
     <string name="builtin_zygisk_opt_custom_linker_summary">Load modules with the built-in ELF loader so they never enter the system linker\'s solist. Falls back to the system linker if a module cannot be loaded.</string>
     <string name="builtin_zygisk_opt_lsplt">Use LSPLT for PLT hooks</string>
-    <string name="builtin_zygisk_opt_lsplt_summary">Off uses ByteHook, on uses LSPLT.</string>
+    <string name="builtin_zygisk_opt_lsplt_summary">Off uses ByteHook, on uses LSPLT.</string><string name="builtin_zygisk_opt_yukiplt">Use YukiPLT for PLT hooks</string><string name="builtin_zygisk_opt_yukiplt_summary">On uses YukiPLT (default), off uses LSPLT.</string><string name="dynamic_home_card_title">Dynamic card background</string><string name="dynamic_home_card_summary">MP4 or animated WebP behind the home status card</string><string name="dynamic_wallpaper_scale">Scale</string><string name="dynamic_wallpaper_fit_fit">Fit</string><string name="dynamic_wallpaper_fit_fill">Fill</string><string name="dynamic_wallpaper_fit_custom">Custom</string><string name="dynamic_wallpaper_adjust_hint">Pinch to zoom, drag to move</string><string name="dynamic_wallpaper_frame_rate">Frame rate</string><string name="dynamic_wallpaper_frame_rate_auto">Auto</string><string name="dynamic_wallpaper_playback_speed">Playback speed</string><string name="dynamic_wallpaper_playback_scope">Applies to every dynamic wallpaper</string>
 </resources>
