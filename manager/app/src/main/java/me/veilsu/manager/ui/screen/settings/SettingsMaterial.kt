@@ -42,7 +42,7 @@ import androidx.compose.material.icons.rounded.Language
 import androidx.compose.material.icons.filled.VerifiedUser
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
-import androidx.compose.material3.LargeFlexibleTopAppBar
+import me.veilsu.manager.ui.component.material.LargeFlexibleTopAppBar
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -128,6 +128,7 @@ fun SettingPagerMaterial(
     // here so a late-load confirmation outlives this dialog.
     val rebootAction = rememberRebootAction()
     val rebootChoices = rememberRebootChoices()
+
     val hasCustomBackground = LocalBackgroundImagePath.current.isNotEmpty()
     ExpressiveScaffold(
         containerColor = if (hasCustomBackground) Color.Transparent else MaterialTheme.colorScheme.surfaceContainer,

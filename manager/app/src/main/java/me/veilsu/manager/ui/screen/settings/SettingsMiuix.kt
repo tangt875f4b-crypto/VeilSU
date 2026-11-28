@@ -75,7 +75,7 @@ import me.veilsu.manager.ui.viewmodel.MainPageRequest
 import kotlinx.coroutines.delay
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
-import top.yukonga.miuix.kmp.basic.TopAppBar
+import me.veilsu.manager.ui.component.miuix.TopAppBar
 import top.yukonga.miuix.kmp.blur.layerBackdrop
 import top.yukonga.miuix.kmp.preference.ArrowPreference
 import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
@@ -129,12 +129,17 @@ fun SettingPagerMiuix(
     // here so a late-load confirmation outlives this dialog.
     val rebootAction = rememberRebootAction()
     val rebootChoices = rememberRebootChoices()
+
+    // Opaque while neither the bar blur nor a custom background is active: a transparent bar there
+    // lets the list scroll through the title. Matches the other Miuix pages.
+    val barColor = if (backdrop != null || hasCustomBackground) Color.Transparent else colorScheme.surface
+
     AppScaffold(
         containerColor = if (hasCustomBackground) Color.Transparent else colorScheme.surface,
         topBar = {
             BlurredBar(backdrop = backdrop, scrollBehavior = scrollBehavior) {
                 TopAppBar(
-                    color = Color.Transparent,
+                    color = barColor,
                     title = customText(CustomTextKey.PAGE_SETTINGS),
                     scrollBehavior = scrollBehavior
                 )

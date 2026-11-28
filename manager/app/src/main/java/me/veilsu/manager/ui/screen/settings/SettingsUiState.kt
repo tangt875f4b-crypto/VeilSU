@@ -35,6 +35,8 @@ data class SettingsUiState(
     val enableProgressiveBlur: Boolean = false,
     val enableFloatingBottomBar: Boolean = false,
     val enableFloatingBottomBarBlur: Boolean = false,
+    val topBarStyle: Int = 0,
+    val topBarPillFade: Boolean = true,
     val enableNavigationBadge: Boolean = true,
     val pageScale: Float = 1.0f,
     val moduleDescriptionMaxLines: Int = 4,
@@ -85,11 +87,28 @@ data class SettingsUiState(
     // Auto Jailbreak
     val autoJailbreak: Boolean = false,
 
+    // null, or why the switch still needs a soft restart: `pending`.
+
     // Soft Reboot
     val useSoftReboot: Boolean = false,
 
     val customBackgroundUri: String = "",
     val customBackgroundUpdatedAt: Long = 0L,
+    val dynamicWallpaperPath: String = "",
+    val dynamicWallpaperUpdatedAt: Long = 0L,
+    val dynamicWallpaperMuted: Boolean = true,
+    val dynamicWallpaperFit: Int = 1,
+    val dynamicWallpaperZoom: Float = 1f,
+    val dynamicWallpaperOffsetX: Float = 0f,
+    val dynamicWallpaperOffsetY: Float = 0f,
+    val dynamicWallpaperFps: Int = 0,
+    val dynamicWallpaperSpeed: Float = 1f,
+    val dynamicHomeCardPath: String = "",
+    val dynamicHomeCardUpdatedAt: Long = 0L,
+    val dynamicHomeCardFit: Int = 1,
+    val dynamicHomeCardZoom: Float = 1f,
+    val dynamicHomeCardOffsetX: Float = 0f,
+    val dynamicHomeCardOffsetY: Float = 0f,
     val useSystemWallpaper: Boolean = false,
     
     val systemWallpaperPath: String = "",
@@ -105,6 +124,7 @@ data class SettingsUiState(
     val homeCardSectionExpanded: Boolean = true,
     val colorsSectionExpanded: Boolean = true,
     val bottomBarSectionExpanded: Boolean = true,
+    val topBarSectionExpanded: Boolean = true,
     val interactionSectionExpanded: Boolean = true,
     val detailsSectionExpanded: Boolean = true,
     val customHomeTitle: String = "",
@@ -137,6 +157,9 @@ data class SettingsUiState(
     val adaptiveDraftLightCaptured: Boolean = false,
     val adaptiveDraftDarkCaptured: Boolean = false,
     val adaptiveDraftComplete: Boolean = false,
+    /** A complete draft carries its own shared dynamic media snapshot. */
+    val adaptiveDraftDynamicWallpaper: Boolean = false,
+    val adaptiveDraftDynamicHomeCard: Boolean = false,
     
     val adaptiveDraftRevision: Int = 0,
 
@@ -170,6 +193,10 @@ data class ThemePackageOptions(
     val customColors: Boolean = true,
     val imageEffects: Boolean = true,
     val bottomBarIcons: Boolean = true,
+    /** The full-screen dynamic wallpaper (MP4/animated WebP). */
+    val dynamicWallpaper: Boolean = true,
+    /** The dynamic file behind the home status card. */
+    val dynamicHomeCard: Boolean = true,
 )
 
 val ThemePackageOptionsSaver = listSaver(
@@ -194,6 +221,8 @@ val ThemePackageOptionsSaver = listSaver(
             it.customColors,
             it.imageEffects,
             it.bottomBarIcons,
+            it.dynamicWallpaper,
+            it.dynamicHomeCard,
         )
     },
     restore = {
@@ -219,6 +248,8 @@ val ThemePackageOptionsSaver = listSaver(
             customColors = it.getOrElse(16) { true },
             imageEffects = it.getOrElse(17) { true },
             bottomBarIcons = it.getOrElse(18) { true },
+            dynamicWallpaper = it.getOrElse(19) { true },
+            dynamicHomeCard = it.getOrElse(20) { true },
         )
     },
 )
