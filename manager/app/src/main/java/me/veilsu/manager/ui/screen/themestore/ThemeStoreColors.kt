@@ -6,6 +6,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import me.veilsu.manager.ui.theme.LocalBackgroundImagePath
+import me.veilsu.manager.ui.theme.LocalTopBarStyle
 import me.veilsu.manager.ui.theme.isInDarkTheme
 
 @Composable
@@ -48,6 +49,12 @@ internal fun themeStoreCardBorderColor(): Color {
 @Composable
 internal fun themeStoreTopBarIconColors(): IconButtonColors =
     IconButtonDefaults.iconButtonColors(
-        containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+        // The floating top bar paints its own glass circle; a filled container here would nest a
+        // second circle inside it.
+        containerColor = if (LocalTopBarStyle.current.isFloating) {
+            Color.Transparent
+        } else {
+            MaterialTheme.colorScheme.surfaceContainerHighest
+        },
         contentColor = MaterialTheme.colorScheme.onSurface,
     )
