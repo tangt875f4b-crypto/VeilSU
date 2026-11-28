@@ -3,6 +3,7 @@ package me.veilsu.manager.ui.util
 import android.content.ContentResolver
 import android.content.Context
 import android.net.Uri
+import android.os.Build
 import android.os.Environment
 import android.os.Parcelable
 import android.os.SystemClock
@@ -29,6 +30,7 @@ import me.veilsu.manager.ksuApp
 import me.veilsu.manager.ui.screen.susfs.util.SuSFSConfig
 import okhttp3.OkHttpClient
 import org.json.JSONArray
+import org.json.JSONObject
 import java.io.File
 import java.io.IOException
 import java.nio.ByteBuffer
@@ -815,11 +817,19 @@ internal val KNOWN_BLOCKABLE_MODULES = listOf(
     "vr", "vklp", "oplus_secure_guard", "oplus_secure_guard_new", "mkp"
 )
 
-// Return the known anti-root modules currently loaded on this device (per
-// /proc/modules), so the install screen can pre-fill only the relevant ones.
-// Modules other modules use are left out: blocking one keeps its users from
-// loading as well, so ksuinit refuses to block it in first stage anyway.
+// The module worth pre-filling on this vendor's devices; nothing for others.
+private fun vendorDefaultBlockModule(): String? = when (Build.MANUFACTURER.lowercase()) {
+    "oneplus" -> "oplus_secure_guard_new"
+    "vivo" -> "vr"
+    else -> null
+}
+
+// Return the vendor's default anti-root module if it is currently loaded on
+// this device (per /proc/modules), so the install screen pre-fills only that
+// one. A module other modules use is left out: blocking it keeps its users
+// from loading as well, so ksuinit refuses to block it in first stage anyway.
 suspend fun getLoadedBlockableModules(): List<String> = withContext(Dispatchers.IO) {
+    val default = vendorDefaultBlockModule() ?: return@withContext emptyList()
     val shell = getRootShell()
     val out = shell.newJob().add("cat /proc/modules").to(ArrayList(), null).exec().out
     // <name> <size> <refcount> <used by, or "-"> <state> <address>
@@ -827,7 +837,7 @@ suspend fun getLoadedBlockableModules(): List<String> = withContext(Dispatchers.
         val fields = line.trim().split(Regex("\\s+"))
         fields.getOrNull(0)?.takeIf { fields.getOrNull(3) == "-" }
     }.toHashSet()
-    KNOWN_BLOCKABLE_MODULES.filter { it in unused }
+    listOf(default).filter { it in unused }
 }
 
 private fun installBootWithKpm(
@@ -1208,6 +1218,59 @@ fun controlKpmModule(name: String, args: String? = null): Int {
     return result.trim().toIntOrNull() ?: -1
 }
 
+data class KpmRunResult(
+    val code: Int,
+    val output: String,
+    val error: String,
+)
+
+fun getKpmCommands(name: String): String {
+    val shell = getRootShell()
+    val cmd = "${getKsuDaemonPath()} kpm commands ${SuSFSConfig.shellQuote(name)}"
+    return runCmd(shell, cmd).trim()
+}
+
+fun getKpmHelp(name: String): String {
+    val shell = getRootShell()
+    val cmd = "${getKsuDaemonPath()} kpm help ${SuSFSConfig.shellQuote(name)}"
+    return runCmd(shell, cmd).trim()
+}
+
+fun runKpmModule(name: String, args: String): KpmRunResult {
+    val shell = getRootShell()
+    val cmd = "${getKsuDaemonPath()} kpm run --json ${SuSFSConfig.shellQuote(name)} " +
+            SuSFSConfig.shellQuote(args)
+    val result = shell.newJob().add(cmd).to(ArrayList(), ArrayList()).exec()
+    val stdout = result.out.joinToString("\n").trim()
+    val jsonLine = stdout.lineSequence().lastOrNull { it.trimStart().startsWith("{") }
+    if (jsonLine != null) {
+        runCatching {
+            val obj = JSONObject(jsonLine)
+            return KpmRunResult(
+                code = obj.optInt("code", -1),
+                output = obj.optString("output", ""),
+                error = result.err.joinToString("\n"),
+            )
+        }
+    }
+    return KpmRunResult(
+        code = result.code,
+        output = stdout,
+        error = result.err.joinToString("\n"),
+    )
+}
+
+suspend fun readKpmKernelLog(moduleId: String): List<String> = withContext(Dispatchers.IO) {
+    runCatching {
+        val shell = getRootShell()
+        val output = runCmd(shell, "dmesg | tail -n 120")
+        output.lineSequence()
+            .filter { it.contains(moduleId, ignoreCase = true) || it.contains("kpm", ignoreCase = true) }
+            .toList()
+            .takeLast(40)
+    }.getOrDefault(emptyList())
+}
+
 fun getKpmVersion(): String {
     val shell = getRootShell()
     val cmd = "${getKsuDaemonPath()} kpm version"
@@ -1231,11 +1294,10 @@ fun getKpmVersion(): String {
  * A probe failure reports [KpmHost.Unknown] and fails closed, like upstream.
  */
 enum class KpmHost {
-
     /** kpimg is embedded in the boot kernel: the boot image has the KPM patch. */
     BootImage,
 
-    /** A separately loaded module serves KPM; the boot image has no KPM patch. */
+    /** A separately loaded kpm.ko serves KPM; the boot image has no KPM patch. */
     Module,
 
     /** No KPM host is reachable. */
@@ -1246,22 +1308,20 @@ enum class KpmHost {
 }
 
 suspend fun getKpmHost(): KpmHost = withContext(Dispatchers.IO) {
-    runCatching {
-        val moduleLoaded = getRootShell().newJob()
-            .add("test -e /sys/module/kpm && echo yes || true")
-            .to(ArrayList<String>(), null)
-            .exec()
-            .out.firstOrNull { it.isNotBlank() }?.trim() == "yes"
-        if (moduleLoaded) {
-            KpmHost.Module
-        } else if (getKpmVersion().isNotBlank()) {
-            // KPM answers but no kpm.ko is loaded: the bridge is served by
-            // kernelsu.ko, a loadable module — not by the boot image.
-            KpmHost.Module
-        } else {
-            KpmHost.None
+    val result = getRootShell().newJob()
+        .add("${getKsuDaemonPath()} kpm host")
+        .to(ArrayList<String>(), null)
+        .exec()
+    if (!result.isSuccess) {
+        KpmHost.Unknown
+    } else {
+        when (result.out.lastOrNull { it.isNotBlank() }?.trim()) {
+            "boot" -> KpmHost.BootImage
+            "module" -> KpmHost.Module
+            "none" -> KpmHost.None
+            else -> KpmHost.Unknown
         }
-    }.getOrDefault(KpmHost.Unknown)
+    }
 }
 
 fun getSuSFSStatus(): String {
@@ -1488,4 +1548,3 @@ suspend fun getDynamicManagerSignature(apkPath: String): DynamicManagerSignature
 suspend fun addDynamicManager(packageName: String, signature: DynamicManagerSignature) {
     runDynamicManagerCommand("manager", "add", packageName, signature.certSize.toString(), signature.hash)
 }
-
