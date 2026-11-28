@@ -107,6 +107,55 @@ out:
     return rc;
 }
 
+static int handle_kpm_commands(const struct ksu_kpm_cmd *cmd)
+{
+    char *name, *buf;
+    long rc;
+    size_t size = VEILSU_KPM_OUTPUT_MAX;
+
+    if (!cmd->arg1 || !cmd->arg2) return -EINVAL;
+    name = kzalloc(KPM_NAME_LEN + size, GFP_KERNEL);
+    if (!name) return -ENOMEM;
+    buf = name + KPM_NAME_LEN;
+    rc = copy_string(name, u64_to_user_ptr(cmd->arg1), KPM_NAME_LEN, false);
+    if (!rc) {
+        rc = veilsu_kpm_bridge(VEILSU_KPM_COMMANDS, (unsigned long)name,
+                               (unsigned long)buf, size, 0);
+        if (rc >= 0) {
+            long length = rc;
+            rc = copy_output(u64_to_user_ptr(cmd->arg2), buf, length, size);
+            if (!rc) rc = length;
+        }
+    }
+    kfree(name);
+    return rc;
+}
+
+static int handle_kpm_control_out(const struct ksu_kpm_cmd *cmd)
+{
+    struct ksu_kpm_control_out_cmd ctl;
+    char *name, *args;
+    long rc;
+    size_t outlen;
+
+    if (!cmd->arg1 || !cmd->arg2) return -EINVAL;
+    if (copy_from_user(&ctl, u64_to_user_ptr(cmd->arg2), sizeof(ctl))) return -EFAULT;
+    if (ctl.outlen > VEILSU_KPM_OUTPUT_MAX) return -EINVAL;
+    if (ctl.outlen && !ctl.out) return -EINVAL;
+    outlen = ctl.outlen;
+    name = kzalloc(KPM_NAME_LEN + KPM_ARGS_LEN, GFP_KERNEL);
+    if (!name) return -ENOMEM;
+    args = name + KPM_NAME_LEN;
+    rc = copy_string(name, u64_to_user_ptr(cmd->arg1), KPM_NAME_LEN, false);
+    if (!rc) rc = copy_string(args, u64_to_user_ptr(ctl.args), KPM_ARGS_LEN, true);
+    if (!rc) {
+        rc = veilsu_kpm_bridge(VEILSU_KPM_CONTROL, (unsigned long)name,
+                               (unsigned long)args, ctl.out, outlen);
+    }
+    kfree(name);
+    return rc;
+}
+
 static int handle_kpm(const struct ksu_kpm_cmd *cmd)
 {
     const char __user *arg1 = u64_to_user_ptr(cmd->arg1);
@@ -118,8 +167,18 @@ static int handle_kpm(const struct ksu_kpm_cmd *cmd)
     if (cmd->control_code == VEILSU_KPM_NUM)
         return veilsu_kpm_bridge(VEILSU_KPM_NUM, 0, 0, 0, 0);
 
+    /* Host identity: a plain status query with no user pointers. */
+    if (cmd->control_code == VEILSU_KPM_HOST)
+        return veilsu_kpm_bridge(VEILSU_KPM_HOST, 0, 0, 0, 0);
+
     if (cmd->control_code == VEILSU_KPM_LOAD_EVENT)
         return handle_kpm_load_event(cmd);
+
+    if (cmd->control_code == VEILSU_KPM_COMMANDS)
+        return handle_kpm_commands(cmd);
+
+    if (cmd->control_code == VEILSU_KPM_CONTROL_OUT)
+        return handle_kpm_control_out(cmd);
 
     if (cmd->control_code == VEILSU_KPM_LOAD ||
         cmd->control_code == VEILSU_KPM_CONTROL) {
