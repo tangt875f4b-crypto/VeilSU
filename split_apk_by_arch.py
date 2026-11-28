@@ -147,7 +147,7 @@ def sign_apk(
         [
             str(apksigner),
             "sign",
-            "--v1-signing-enabled", "false",
+            "--v1-signing-enabled", "true",  # v1 on: v2-only rejected by some installers (Fe-local lesson)
             "--v2-signing-enabled", "true",
             "--v3-signing-enabled", "false",
             "--v4-signing-enabled", "false",
@@ -162,12 +162,41 @@ def sign_apk(
     )
 
 
+def assert_split_arch(apk_path: Path, arch: str) -> None:
+    """Fail if the split APK for `arch` lost its ksud daemon entry.
+
+    The ksud entry is the (possibly randomly named) >= 1 MB .so under
+    lib/<arch>/; repack guarantees one per arch, split must not drop it.
+    """
+    with ZipFile(apk_path, "r") as zin:
+        entries = [
+            i for i in zin.infolist()
+            if i.filename.startswith(f"lib/{arch}/")
+            and i.filename.endswith(".so") and i.file_size >= 1_000_000
+        ]
+        others = {
+            n.split("/")[1] for n in zin.namelist()
+            if n.startswith("lib/") and len(n.split("/")) >= 3
+            and n.split("/")[1] != arch
+        }
+    if not entries:
+        raise RuntimeError(f"Split APK {apk_path} has no ksud entry for {arch}")
+    if others:
+        raise RuntimeError(f"Split APK {apk_path} still contains arches: {sorted(others)}")
+
+
 def do_split(args: argparse.Namespace) -> int:
     apk = Path(args.apk).resolve()
     if not apk.exists():
         raise FileNotFoundError(f"APK not found: {apk}")
 
-    arches = resolve_arches(apk, args.arch or [])
+    # --arch accepts repeats AND comma lists ("-a arm64-v8a,x86_64"), matching
+    # repack_apk.py's normalize_arch_values; the help text already claims
+    # comma lists work, but the old code never split on commas.
+    requested: List[str] = []
+    for item in args.arch or []:
+        requested.extend(p.strip() for p in str(item).split(",") if p.strip())
+    arches = resolve_arches(apk, requested)
     print(f"[INFO] Input APK : {apk}")
     print(f"[INFO] Arch list : {', '.join(arches)}")
 
@@ -200,6 +229,7 @@ def do_split(args: argparse.Namespace) -> int:
                 args.key_pass,
             )
 
+        assert_split_arch(signed_path, arch)
         print(f"[OK] {arch:<16} -> {signed_path}")
 
     return 0
