@@ -186,6 +186,36 @@ static const __u32 VEILSU_KPM_VERSION = 7;
 /* Optional event-aware load used for boot-stage modules. */
 static const __u32 VEILSU_KPM_LOAD_EVENT = 8;
 
+/*
+ * Reports which host currently serves the KPM ABI:
+ *
+ *   VEILSU_KPM_HOST_BOOT_IMAGE  kpimg embedded in the boot kernel
+ *                               (the boot image already carries the KPM patch)
+ *
+ *   VEILSU_KPM_HOST_MODULE      a separately insmod'ed kpm.ko
+ *
+ * Hosts older than this op answer -EOPNOTSUPP; callers must treat that as
+ * "cannot determine", not as "no host".
+ *
+ */
+static const __u32 VEILSU_KPM_HOST = 9;
+
+#define VEILSU_KPM_HOST_BOOT_IMAGE 1u
+#define VEILSU_KPM_HOST_MODULE     2u
+
+/* Optional machine-readable command catalog for loaded modules. */
+static const __u32 VEILSU_KPM_COMMANDS = 10;
+
+/* ctl0 with a user output buffer; arg2 is ksu_kpm_control_out_cmd. */
+static const __u32 VEILSU_KPM_CONTROL_OUT = 11;
+
+/* arg2 payload for VEILSU_KPM_CONTROL_OUT. All fields are user pointers/lengths. */
+struct ksu_kpm_control_out_cmd {
+    __aligned_u64 args;
+    __aligned_u64 out;
+    __aligned_u64 outlen;
+};
+
 struct ksu_kpm_cmd {
     __aligned_u64 control_code;
     __aligned_u64 arg1;
