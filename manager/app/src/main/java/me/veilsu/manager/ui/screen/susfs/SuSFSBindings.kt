@@ -125,7 +125,13 @@ internal fun SuSFSDialogs(uiState: SuSFSUiState, viewModel: SuSFSViewModel) {
         apps = uiState.installedApps,
         isLoadingApps = uiState.isLoadingApps,
         onLoadApps = { viewModel.loadInstalledApps() },
-        existingSusPaths = uiState.susPaths
+        // Treat the app-facing sus_path_loop entry as the canonical "app
+        // already added" marker. Raw /data/media entries alone are not
+        // enough: older builds saved only those and still left /sdcard
+        // visible.
+        existingSusPaths = uiState.susLoopPaths + uiState.susPaths.filter {
+            it.startsWith("/sdcard/") || it.startsWith("/storage/emulated/")
+        }
     )
 
     AddKstatStaticallyDialog(

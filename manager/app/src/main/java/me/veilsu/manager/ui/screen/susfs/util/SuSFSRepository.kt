@@ -155,8 +155,14 @@ object SuSFSRepository {
             false
         }
         val success = if (useSusfs) {
+            // SuSFS requires both strings to be non-empty; "default" asks the
+            // kernel to keep the running release/version. The KernelSU ioctl
+            // fallback treats an empty string as "keep", so it still receives
+            // the original values below.
+            val releaseArg = unameValue.ifBlank { SuSFSConfig.DEFAULT_UNAME }
+            val versionArg = buildTimeValue.ifBlank { SuSFSConfig.DEFAULT_BUILD_TIME }
             val susfsResult = SuSFSCommands.executeSusfsCommandWithOutput(
-                "set-uname ${SuSFSConfig.shellQuote(unameValue)} ${SuSFSConfig.shellQuote(buildTimeValue)}"
+                "set-uname ${SuSFSConfig.shellQuote(releaseArg)} ${SuSFSConfig.shellQuote(versionArg)}"
             )
             susfsResult.isSuccess || spoofKernelUname(unameValue, buildTimeValue)
         } else {

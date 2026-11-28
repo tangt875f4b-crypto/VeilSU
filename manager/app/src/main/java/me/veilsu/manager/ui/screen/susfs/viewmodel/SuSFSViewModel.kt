@@ -445,9 +445,22 @@ class SuSFSViewModel(
     fun addAppPaths(context: Context, packages: List<String>) = performOperation {
         beginResults()
         packages.forEach { packageName ->
-            val paths = SuSFSPathManager.getAppPaths(context, packageName)
-            if (paths.isEmpty()) report(context, packageName) { false }
-            else paths.forEach { path ->
+            // Register the app-facing /sdcard path with sus_path_loop: it
+            // needs no existence check and is re-flagged whenever the app
+            // process is spawned and marked umounted.
+            SuSFSPathManager.getAppLoopPaths(packageName).forEach { path ->
+                report(context, path) {
+                    val result = SuSFSPathManager.addSusLoopPathWithResult(path)
+                    check(result.isSuccess) {
+                        result.errorOutput.ifBlank { result.output }.ifBlank {
+                            context.getString(R.string.config_command_rejected)
+                        }
+                    }
+                    true
+                }
+            }
+
+            SuSFSPathManager.getAppPaths(context, packageName).forEach { path ->
                 report(context, path) {
                     val result = SuSFSPathManager.addSusPathWithResult(path)
                     check(result.isSuccess) {

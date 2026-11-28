@@ -79,7 +79,7 @@ object SuSFSPathManager {
         } catch (_: Exception) { false }
     }
 
-    private fun buildUidPath(uid: Int): String {
+    private fun buildUidPath(uid: Int): String? {
         val base = SuSFSConfig.CGROUP_BASE_PATH
         val possiblePaths = listOf(
             "$base/uid_$uid",
@@ -90,33 +90,55 @@ object SuSFSPathManager {
             "$base/cpuset/uid_$uid",
             "$base/cpu/uid_$uid"
         )
-        for (path in possiblePaths) {
-            if (checkPathExists(path)) return path
-        }
-        return possiblePaths[0]
+        return possiblePaths.firstOrNull { checkPathExists(it) }
     }
 
     @RequiresApi(Build.VERSION_CODES.Q)
     @SuppressLint("StringFormatMatches")
     suspend fun getAppPaths(context: Context, packageName: String): List<String> {
-        val uid = getAppUid(context, packageName) ?: return emptyList()
-        return listOf(
-            "${SuSFSConfig.DEFAULT_ANDROID_DATA_PATH}/$packageName",
-            "${SuSFSConfig.MEDIA_DATA_PATH}/$packageName",
-            buildUidPath(uid)
-        )
+        val uid = getAppUid(context, packageName)
+        return buildList {
+            // Raw /data/media path: available before unlock, so a normal
+            // sus_path entry can hide it early. The app-facing /sdcard view
+            // is registered through getAppLoopPaths() so its flag is
+            // re-applied whenever the app process is spawned.
+            add("${SuSFSConfig.MEDIA_DATA_PATH}/$packageName")
+            if (uid != null) buildUidPath(uid)?.let { add(it) }
+        }
     }
+
+    /**
+     * App paths that must be registered with `add-sus-path-loop`.
+     *
+     * `/sdcard/Android/data/<pkg>` is the path apps actually see. Latest
+     * SuSFS can also flag an existing FUSE inode through a normal
+     * `sus_path`, but the loop variant is the mechanism designed for app
+     * data: it stores the pathname without requiring the target to exist,
+     * and re-flags the current FUSE inode whenever the app process is
+     * spawned and marked umounted (FUSE inodes may be recreated after
+     * unlock).
+     */
+    fun getAppLoopPaths(packageName: String): List<String> =
+        listOf("${SuSFSConfig.DEFAULT_ANDROID_DATA_PATH}/$packageName")
 
     @RequiresApi(Build.VERSION_CODES.Q)
     suspend fun addAppPaths(context: Context, packageName: String): Boolean {
-        val paths = getAppPaths(context, packageName)
-        val results = paths.map { addSusPathInternal(context, it, showToast = false) }
-        return results.isNotEmpty() && results.all { it }
+        val loopResults = getAppLoopPaths(packageName).map {
+            addSusLoopPathInternal(context, it, showToast = false)
+        }
+        getAppPaths(context, packageName).forEach {
+            addSusPathInternal(context, it, showToast = false)
+        }
+        // The loop entry is the app-facing /sdcard rule; the raw media and
+        // cgroup entries are secondary. Report success only when the loop
+        // rule was actually accepted, otherwise "add app" would claim
+        // app-data hiding while /sdcard stays visible.
+        return loopResults.any { it }
     }
 
     suspend fun addSusPathWithResult(path: String): SuSFSCommands.CommandResult {
         val result = SuSFSCommands.executeSusfsCommandWithOutput("add-sus-path ${SuSFSConfig.shellQuote(path)}")
-        val success = result.isSuccess && !result.output.contains("not found, skip adding")
+        val success = result.isSuccess
         if (success) {
             SuSFSRepository.saveSusPaths(SuSFSRepository.getSusPaths() + path)
             if (SuSFSRepository.isAutoStartEnabled()) {
@@ -168,8 +190,32 @@ object SuSFSPathManager {
     }
 
     @SuppressLint("SdCardPath")
-    private fun isValidLoopPath(path: String): Boolean =
-        !path.startsWith("/storage/") && !path.startsWith("/sdcard/")
+    private fun isValidLoopPath(path: String): Boolean {
+        // Loop paths cover app-data paths such as
+        // /sdcard/Android/data/<pkg>, so allow primary emulated storage.
+        // Keep rejecting removable volumes (/storage/XXXX-XXXX).
+        val normalized = path.trimEnd('/')
+        val isRemovableStorage = normalized.startsWith("/storage/") &&
+            !normalized.startsWith("/storage/emulated/")
+        return !isRemovableStorage
+    }
+
+    suspend fun addSusLoopPathWithResult(path: String): SuSFSCommands.CommandResult {
+        if (!isValidLoopPath(path)) {
+            return SuSFSCommands.CommandResult(false, "", "invalid loop path")
+        }
+        val result = SuSFSCommands.executeSusfsCommandWithOutput(
+            "add-sus-path-loop ${SuSFSConfig.shellQuote(path)}"
+        )
+        val success = result.isSuccess
+        if (success) {
+            SuSFSRepository.saveSusLoopPaths(SuSFSRepository.getSusLoopPaths() + path)
+            if (SuSFSRepository.isAutoStartEnabled()) {
+                SuSFSCommands.updateMagiskModule()
+            }
+        }
+        return result.copy(isSuccess = success)
+    }
 
     @SuppressLint("StringFormatInvalid")
     private suspend fun addSusLoopPathInternal(context: Context, path: String, showToast: Boolean = true): Boolean {
@@ -177,15 +223,11 @@ object SuSFSPathManager {
             if (showToast) showToast(context, context.getString(R.string.susfs_invalid_loop_path))
             return false
         }
-        val result = SuSFSCommands.executeSusfsCommandWithOutput("add-sus-path-loop '$path'")
-        val isActuallySuccessful = result.isSuccess && !result.output.contains("not found, skip adding")
-        if (isActuallySuccessful) {
-            SuSFSRepository.saveSusLoopPaths(SuSFSRepository.getSusLoopPaths() + path)
-            if (SuSFSRepository.isAutoStartEnabled()) SuSFSCommands.updateMagiskModule()
-        } else if (showToast) {
+        val result = addSusLoopPathWithResult(path)
+        if (!result.isSuccess && showToast) {
             showToast(context, result.errorOutput.ifEmpty { context.getString(R.string.susfs_add_loop_path_failed) })
         }
-        return isActuallySuccessful
+        return result.isSuccess
     }
 
     suspend fun addSusLoopPath(context: Context, path: String): Boolean = addSusLoopPathInternal(context, path, showToast = true)
