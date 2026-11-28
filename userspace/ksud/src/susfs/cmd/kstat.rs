@@ -22,10 +22,10 @@ use crate::susfs::util::{canonicalize, copy_metadata_into_kstat, copy_path_into}
 
 /// Resolve `path`, `stat(2)` it, and fill a [`SusfsKstat`] in place.
 ///
-/// `is_statically` is left at `0` (the callers below set it to `1` for the
-/// `*_statically` variant); `flags` is set to the value passed in and
-/// `err` is initialised to [`ERR_CMD_NOT_SUPPORTED`] so an unsupported
-/// kernel surfaces as `Ok(())` rather than a confusing error.
+/// `is_statically` is left at `false` (the callers below set it to `true`
+/// for the `*_statically` variant); `flags` is set to the value passed in
+/// and `err` is initialised to [`ERR_CMD_NOT_SUPPORTED`] so a kernel that
+/// does not handle the command is reported as unsupported.
 fn fill_kstat_from_path(path: &str, flags: u32) -> Result<SusfsKstat> {
     let resolved = canonicalize(path)?;
     let resolved_str = resolved
@@ -36,7 +36,7 @@ fn fill_kstat_from_path(path: &str, flags: u32) -> Result<SusfsKstat> {
         .with_context(|| format!("failed to get stat from path: '{resolved_str}'"))?;
 
     let mut kstat = SusfsKstat {
-        is_statically: 0,
+        is_statically: false,
         target_ino: 0,
         target_pathname: [0; SUSFS_MAX_PATHNAME],
         spoofed_ino: 0,
@@ -140,7 +140,7 @@ pub fn add_sus_kstat_statically(
     blksize: &str,
 ) -> Result<()> {
     let mut cmd = fill_kstat_from_path(path, 0)?;
-    cmd.is_statically = 1;
+    cmd.is_statically = true;
 
     macro_rules! apply_override {
         ($field:ident, $value:expr, $ty:ty, $flag:ident) => {
