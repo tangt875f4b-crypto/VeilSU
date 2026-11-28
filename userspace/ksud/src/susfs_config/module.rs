@@ -14,6 +14,7 @@ use super::keys::{
     KEY_SUS_PATHS, KEY_UNAME_VALUE,
 };
 use super::store::load_config;
+use crate::susfs_module::consts::{DEFAULT_BUILD_TIME, DEFAULT_UNAME};
 
 pub fn split_paths(raw: &str) -> Vec<String> {
     if raw.is_empty() {
@@ -59,9 +60,29 @@ pub fn load_module_config() -> Result<ModuleConfig> {
     let kstat_configs_raw = get(KEY_KSTAT_CONFIGS);
     let add_kstat_paths_raw = get(KEY_ADD_KSTAT_PATHS);
 
+    // `set-uname` requires non-empty strings; the SuSFS kernel treats
+    // "default" as "keep the running value". Normalize blank/legacy config
+    // values here so the generated module never emits `set-uname '' ''`.
+    let uname_value = {
+        let value = get(KEY_UNAME_VALUE);
+        if value.trim().is_empty() {
+            DEFAULT_UNAME.to_string()
+        } else {
+            value
+        }
+    };
+    let build_time_value = {
+        let value = get(KEY_BUILD_TIME_VALUE);
+        if value.trim().is_empty() {
+            DEFAULT_BUILD_TIME.to_string()
+        } else {
+            value
+        }
+    };
+
     Ok(ModuleConfig {
-        uname_value: get(KEY_UNAME_VALUE),
-        build_time_value: get(KEY_BUILD_TIME_VALUE),
+        uname_value,
+        build_time_value,
         execute_in_post_fs_data: get(KEY_EXECUTE_IN_POST_FS_DATA) == "true",
         sus_paths: split_paths(&sus_paths_raw),
         sus_loop_paths: split_paths(&sus_loop_paths_raw),
