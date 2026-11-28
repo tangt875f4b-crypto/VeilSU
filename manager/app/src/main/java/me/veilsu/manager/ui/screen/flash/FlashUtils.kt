@@ -35,7 +35,9 @@ import me.veilsu.manager.ui.util.LkmSelection
 import me.veilsu.manager.ui.util.downloadBoot
 import me.veilsu.manager.ui.util.flashModule
 import me.veilsu.manager.ui.util.installBoot
+import me.veilsu.manager.ui.util.installKpmKernelModule
 import me.veilsu.manager.ui.util.patchKpmBoot
+import me.veilsu.manager.ui.util.removeKpmKernelModule
 import me.veilsu.manager.ui.util.restoreBoot
 import me.veilsu.manager.ui.util.uninstallPermanently
 import java.io.File
@@ -106,6 +108,15 @@ sealed class FlashIt : Parcelable {
 
     @Parcelize
     data class PatchKpmBoot(val boot: Uri? = null, val undo: Boolean = false) : FlashIt()
+
+    @Parcelize
+    data class InstallKpmModule(
+        val module: Uri? = null,
+        val persist: Boolean = true,
+    ) : FlashIt()
+
+    @Parcelize
+    data object RemoveKpmModule : FlashIt()
 
     @Parcelize
     data class FlashModules(val uris: List<Uri>) : FlashIt()
@@ -186,6 +197,9 @@ fun flashIt(
         }
 
         is FlashIt.PatchKpmBoot -> patchKpmBoot(flashIt.boot, onStdout, onStderr, undo = flashIt.undo)
+        is FlashIt.InstallKpmModule ->
+            installKpmKernelModule(flashIt.module, flashIt.persist, onStdout, onStderr)
+        FlashIt.RemoveKpmModule -> removeKpmKernelModule(onStdout, onStderr)
         FlashIt.FlashRestore -> restoreBoot(onStdout, onStderr)
         FlashIt.FlashUninstall -> uninstallPermanently(onStdout, onStderr)
     }
