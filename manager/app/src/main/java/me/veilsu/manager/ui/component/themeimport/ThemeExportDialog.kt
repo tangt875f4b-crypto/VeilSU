@@ -5,6 +5,7 @@ import androidx.compose.ui.res.stringResource
 import me.veilsu.manager.R
 import me.veilsu.manager.ui.screen.settings.ThemePackageOptions
 import me.veilsu.manager.ui.util.CustomTextGroup
+import me.veilsu.manager.ui.util.ThemePackageStorage
 
 @Composable
 fun ThemeExportDialog(
@@ -21,6 +22,8 @@ fun ThemeExportDialog(
     hasImageEffects: Boolean = false,
     immersiveHome: Boolean = false,
     hasBottomBarIcons: Boolean = false,
+    hasDynamicWallpaper: Boolean = false,
+    hasDynamicHomeCard: Boolean = false,
     onUpload: ((ThemePackageOptions) -> Unit)? = null,
 ) {
     ThemeOptionsDialog(
@@ -35,6 +38,9 @@ fun ThemeExportDialog(
         onDismissRequest = onDismissRequest,
         onConfirm = onConfirm,
         formatVersion = when {
+            hasDynamicWallpaper || hasDynamicHomeCard ->
+                ThemePackageStorage.DYNAMIC_VERSION
+
             immersiveHome || hasBottomBarIcons ->
                 me.veilsu.manager.ui.util.ThemePackageStorage.HOME_STATUS_VERSION
 
@@ -49,6 +55,8 @@ fun ThemeExportDialog(
         hasCustomColors = hasCustomColors,
         hasImageEffects = hasImageEffects,
         hasBottomBarIcons = hasBottomBarIcons,
+        hasDynamicWallpaper = hasDynamicWallpaper,
+        hasDynamicHomeCard = hasDynamicHomeCard,
         onUpload = onUpload,
     )
 }

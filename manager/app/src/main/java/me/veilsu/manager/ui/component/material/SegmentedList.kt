@@ -249,7 +249,7 @@ fun SegmentedColumn(
                             CompositionLocalProvider(
                                 LocalListItemShapes provides ListItemDefaults.segmentedShapes(0, 1).copy(shape = shape)
                             ) {
-                                Column(modifier = Modifier.padding(top = gap)) {
+                                Column(modifier = Modifier.padding(top = gap.coerceAtLeast(0.dp))) {
                                     entry.content()
                                 }
                             }
@@ -295,7 +295,7 @@ fun SegmentedItemContainer(
     val shapes = LocalListItemShapes.current ?: ListItemDefaults.segmentedShapes(0, 1)
     Surface(
         modifier = modifier.fillMaxWidth(),
-        color = colorScheme.surfaceBright,
+        color = backgroundAwareColor(colorScheme.surfaceBright),
         shape = shapes.shape,
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
