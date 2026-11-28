@@ -1215,6 +1215,55 @@ fun getKpmVersion(): String {
     return result.trim()
 }
 
+/**
+ * Which host is currently serving the KPM ABI.
+ *
+ * VeilSU adaptation: VeilSU's ksud has no `kpm host` subcommand and its
+ * kernel KPM bridge has no HOST op, so the host is probed with what VeilSU
+ * already has — /sys/module/kpm plus `ksud kpm version`:
+ * - a loaded kpm.ko is the module host;
+ * - KPM answering without a kpm.ko means the bridge is served by a loaded
+ *   module (kernelsu.ko), not by a KPM patch in the boot image, so this is
+ *   reported as [KpmHost.Module] too — upstream's BootImage means "kpimg
+ *   embedded in the boot kernel", which is not the case for a VeilSU LKM
+ *   install;
+ * - no KPM answer at all means no host is reachable ([KpmHost.None]).
+ * A probe failure reports [KpmHost.Unknown] and fails closed, like upstream.
+ */
+enum class KpmHost {
+
+    /** kpimg is embedded in the boot kernel: the boot image has the KPM patch. */
+    BootImage,
+
+    /** A separately loaded module serves KPM; the boot image has no KPM patch. */
+    Module,
+
+    /** No KPM host is reachable. */
+    None,
+
+    /** A host cannot report its identity, or the probe failed. */
+    Unknown,
+}
+
+suspend fun getKpmHost(): KpmHost = withContext(Dispatchers.IO) {
+    runCatching {
+        val moduleLoaded = getRootShell().newJob()
+            .add("test -e /sys/module/kpm && echo yes || true")
+            .to(ArrayList<String>(), null)
+            .exec()
+            .out.firstOrNull { it.isNotBlank() }?.trim() == "yes"
+        if (moduleLoaded) {
+            KpmHost.Module
+        } else if (getKpmVersion().isNotBlank()) {
+            // KPM answers but no kpm.ko is loaded: the bridge is served by
+            // kernelsu.ko, a loadable module — not by the boot image.
+            KpmHost.Module
+        } else {
+            KpmHost.None
+        }
+    }.getOrDefault(KpmHost.Unknown)
+}
+
 fun getSuSFSStatus(): String {
     val shell = getRootShell()
     return ShellUtils.fastCmd(shell, "${getKsuDaemonPath()} susfs status").trim()
