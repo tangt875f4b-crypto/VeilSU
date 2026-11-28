@@ -5,6 +5,10 @@
 //! boot stages (`service.sh` / `post-fs-data.sh` / `post-mount.sh` /
 //! `boot-completed.sh`) to configure SuSFS on next boot.
 //!
+//! While auto-start is enabled, ksud re-renders the module from the saved
+//! config on every boot (before the module's own stage scripts run), so a
+//! ksud upgrade or a CLI config change does not require reinstalling it.
+//!
 //! ## Layout
 //!
 //! ```text
