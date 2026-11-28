@@ -118,7 +118,7 @@ import top.yukonga.miuix.kmp.basic.TabRow
 import top.yukonga.miuix.kmp.basic.TabRowDefaults
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextButton
-import top.yukonga.miuix.kmp.basic.TopAppBar
+import me.veilsu.manager.ui.component.miuix.TopAppBar
 import top.yukonga.miuix.kmp.basic.rememberPullToRefreshState
 import top.yukonga.miuix.kmp.blur.LayerBackdrop
 import top.yukonga.miuix.kmp.blur.layerBackdrop
@@ -163,6 +163,9 @@ fun ModuleRepoScreenMiuix(
     val barColor = if (blurActive || hasCustomBackground) Color.Transparent else colorScheme.surface
 
     AppScaffold(
+        // The expanded search pager already paints its own scrim; hiding the bar keeps its
+        // surface and blur band from showing through the scrim as a dark rectangle.
+        topBarVisible = searchStatus.isCollapsed(),
         topBar = {
             BlurredBar(backdrop) {
                 searchStatus.TopAppBarAnim(backgroundColor = barColor) {

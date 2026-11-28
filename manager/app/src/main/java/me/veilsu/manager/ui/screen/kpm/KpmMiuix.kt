@@ -2,15 +2,40 @@ package me.veilsu.manager.ui.screen.kpm
 
 import android.content.Context
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.add
+import androidx.compose.foundation.layout.calculateEndPadding
+import androidx.compose.foundation.layout.calculateStartPadding
+import androidx.compose.foundation.layout.displayCutout
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.*
-import androidx.compose.runtime.*
-import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Extension
+import androidx.compose.material.icons.rounded.Info
+import androidx.compose.material.icons.rounded.Refresh
+import androidx.compose.material.icons.rounded.SearchOff
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -36,12 +61,27 @@ import me.veilsu.manager.ui.util.customText
 import me.veilsu.manager.ui.component.ConfigResults
 import me.veilsu.manager.ui.component.miuix.AppCard
 import me.veilsu.manager.ui.component.miuix.AppScaffold
+import me.veilsu.manager.ui.component.miuix.TopAppBar
 import me.veilsu.manager.ui.theme.LocalBackgroundImagePath
 import me.veilsu.manager.ui.theme.LocalEnableBlur
 import me.veilsu.manager.ui.util.BlurredBar
+import me.veilsu.manager.ui.util.CustomTextKey
+import me.veilsu.manager.ui.util.customText
 import me.veilsu.manager.ui.util.rememberBlurBackdrop
 import me.veilsu.manager.ui.viewmodel.KpmViewModel
-import top.yukonga.miuix.kmp.basic.*
+import top.yukonga.miuix.kmp.basic.ButtonDefaults
+import top.yukonga.miuix.kmp.basic.Card
+import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
+import top.yukonga.miuix.kmp.basic.FloatingActionButton
+import top.yukonga.miuix.kmp.basic.HorizontalDivider
+import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.IconButton
+import top.yukonga.miuix.kmp.basic.LinearProgressIndicator
+import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
+import top.yukonga.miuix.kmp.basic.PullToRefresh
+import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.basic.TextButton
+import top.yukonga.miuix.kmp.basic.TextField
 import top.yukonga.miuix.kmp.blur.layerBackdrop
 import top.yukonga.miuix.kmp.overlay.OverlayDialog
 import top.yukonga.miuix.kmp.theme.MiuixTheme.colorScheme
@@ -247,21 +287,5 @@ private fun KpmMiuixDialogs(state: KpmUiState, actions: KpmActions) {
             }
         }
     )
-    val input = state.inputDialogState
-    if (input.visible) {
-        var args by rememberSaveable(input.moduleId) { mutableStateOf(input.args) }
-        OverlayDialog(show = true, title = stringResource(R.string.kpm_control), onDismissRequest = actions.onHideInputDialog, content = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text(input.moduleId.orEmpty(), color = colorScheme.onSurfaceVariantSummary)
-                TextField(value = args, onValueChange = { args = it }, enabled = !state.isBusy,
-                    label = stringResource(R.string.kpm_args), modifier = Modifier.fillMaxWidth(), singleLine = true, useLabelAsPlaceholder = args.isEmpty())
-                if (state.isBusy) LinearProgressIndicator(Modifier.fillMaxWidth())
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    TextButton(text = stringResource(R.string.cancel), onClick = actions.onHideInputDialog, enabled = !state.isBusy, modifier = Modifier.weight(1f))
-                    TextButton(text = stringResource(R.string.confirm), onClick = { actions.onInputArgsChange(args); actions.onExecuteControl() },
-                        enabled = !state.isBusy, modifier = Modifier.weight(1f), colors = ButtonDefaults.textButtonColorsPrimary())
-                }
-            }
-        })
-    }
+    KpmMiuixControlDialog(state.inputDialogState, state.isBusy, actions)
 }

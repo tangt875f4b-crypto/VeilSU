@@ -8,6 +8,7 @@ import me.veilsu.manager.ui.util.listKpmModules
 import me.veilsu.manager.ui.util.loadKpmModule
 import me.veilsu.manager.ui.util.unloadKpmModule
 import java.io.File
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -55,11 +56,14 @@ object KpmOperations {
         withContext(Dispatchers.IO) {
             runCatching {
                 require(isSafeKpmModuleId(moduleId)) { "Unsafe KPM module name" }
-                check(unloadKpmModule(moduleId)) {
-                    context.getString(R.string.config_command_rejected)
-                }
-                check(isLoaded(moduleId) == false) {
-                    context.getString(R.string.config_command_rejected)
+                // Remove the boot copy even if the live unload is rejected; the
+                // module then disappears on the next boot instead of coming back.
+                try {
+                    unloadKpmModule(moduleId)
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (_: Exception) {
+                    // Best effort only; file removal below is the durable action.
                 }
                 val removal = getRootShell().newJob().add(
                     "rm -f -- ${SuSFSConfig.shellQuote("/data/adb/kpm/$moduleId.kpm")}"

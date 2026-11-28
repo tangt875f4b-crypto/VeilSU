@@ -31,7 +31,27 @@ data class KpmUiState(
 data class InputDialogState(
     val visible: Boolean = false,
     val moduleId: String? = null,
+    val description: String = "",
     val args: String = "",
+    val commands: List<KpmCommand> = emptyList(),
+    val commandsLoaded: Boolean = false,
+    val isLoadingCommands: Boolean = false,
+    val selectedCommand: String? = null,
+    val helpText: String = "",
+    val helpLoaded: Boolean = false,
+    val isLoadingHelp: Boolean = false,
+    val isExecuting: Boolean = false,
+    val output: String = "",
+    val error: String? = null,
+    val exitCode: Int? = null,
+    val logLines: List<String> = emptyList(),
+)
+
+@Immutable
+data class KpmCommand(
+    val name: String,
+    val usage: String,
+    val help: String,
 )
 
 @Immutable
@@ -45,5 +65,7 @@ data class KpmActions(
     val onShowInputDialog: (String) -> Unit,
     val onHideInputDialog: () -> Unit,
     val onInputArgsChange: (String) -> Unit,
-    val onExecuteControl: () -> Unit,
+    val onSelectCommand: (String) -> Unit,
+    val onLoadHelp: () -> Unit,
+    val onExecuteControl: (String) -> Unit,
 )

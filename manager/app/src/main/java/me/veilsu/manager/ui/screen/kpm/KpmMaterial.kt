@@ -1,16 +1,59 @@
 package me.veilsu.manager.ui.screen.kpm
 
 import android.content.Context
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.add
+import androidx.compose.foundation.layout.displayCutout
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.*
-import androidx.compose.material3.*
+import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.DeleteOutline
+import androidx.compose.material.icons.rounded.Extension
+import androidx.compose.material.icons.rounded.Info
+import androidx.compose.material.icons.rounded.Refresh
+import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material.icons.rounded.SearchOff
+import androidx.compose.material.icons.rounded.Terminal
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.LoadingIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.SmallExtendedFloatingActionButton
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
-import androidx.compose.runtime.*
-import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -35,11 +78,14 @@ import me.veilsu.manager.ui.util.CustomTextKey
 import me.veilsu.manager.ui.util.customText
 import me.veilsu.manager.ui.component.ConfigResults
 import me.veilsu.manager.ui.component.material.ExpressiveScaffold
+import me.veilsu.manager.ui.component.material.LargeFlexibleTopAppBar
 import me.veilsu.manager.ui.component.material.TonalCard
 import me.veilsu.manager.ui.component.material.TopBarBackButton
 import me.veilsu.manager.ui.component.material.expressiveTopAppBarColors
 import me.veilsu.manager.ui.navigation3.LocalNavigator
 import me.veilsu.manager.ui.theme.backgroundAwareColor
+import me.veilsu.manager.ui.util.CustomTextKey
+import me.veilsu.manager.ui.util.customText
 import me.veilsu.manager.ui.viewmodel.KpmViewModel
 
 @Composable
@@ -287,27 +333,5 @@ private fun KpmMaterialDialogs(state: KpmUiState, actions: KpmActions) {
         confirmButton = {},
         dismissButton = { TextButton(onClick = actions.onDismissInstallDialog, enabled = !state.isBusy) { Text(stringResource(R.string.cancel)) } }
     )
-    val input = state.inputDialogState
-    if (input.visible) {
-        // Keep IME composition local; commit to the ViewModel only when executing.
-        var args by rememberSaveable(input.moduleId) { mutableStateOf(input.args) }
-        AlertDialog(
-            onDismissRequest = actions.onHideInputDialog,
-            title = { Text(stringResource(R.string.kpm_control)) },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text(input.moduleId.orEmpty(), style = MaterialTheme.typography.bodyMedium)
-                    OutlinedTextField(value = args, onValueChange = { args = it }, enabled = !state.isBusy,
-                        label = { Text(stringResource(R.string.kpm_args)) }, modifier = Modifier.fillMaxWidth(), singleLine = true)
-                    if (state.isBusy) LinearProgressIndicator(Modifier.fillMaxWidth())
-                }
-            },
-            confirmButton = {
-                Button(enabled = !state.isBusy, onClick = { actions.onInputArgsChange(args); actions.onExecuteControl() }) {
-                    Text(stringResource(R.string.confirm))
-                }
-            },
-            dismissButton = { TextButton(onClick = actions.onHideInputDialog, enabled = !state.isBusy) { Text(stringResource(R.string.cancel)) } }
-        )
-    }
+    KpmMaterialControlDialog(state.inputDialogState, state.isBusy, actions)
 }
