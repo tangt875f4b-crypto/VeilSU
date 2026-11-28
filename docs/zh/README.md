@@ -14,7 +14,7 @@ VeilSU v1 有意做小：只留模块 + su 授权，不要 Zygisk——无 zygot
 ## 特性
 
 1. 基于内核的 `su` 和权限管理。
-2. App Profile：把 Root 权限关进笼子里。
+2. [App Profile](https://sukisu.org/zh/guide/app-profile)：把 Root 权限关进笼子里。
 3. KPM 支持。
 4. v1 无 Zygisk——不带 zygote 注入。模块按普通模块运行（脚本 + system 文件），Zygisk 模块的 zygote 代码不运行。
 5. 主题商店：浏览、安装、投稿主题，支持作者授权与审核。
