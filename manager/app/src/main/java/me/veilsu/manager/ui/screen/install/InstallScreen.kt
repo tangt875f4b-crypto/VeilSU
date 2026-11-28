@@ -17,8 +17,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.dropUnlessResumed
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import me.veilsu.manager.R
 import me.veilsu.manager.getKernelVersion
 import me.veilsu.manager.ksuApp
@@ -27,6 +29,8 @@ import me.veilsu.manager.ui.UiMode
 import me.veilsu.manager.ui.component.choosekmidialog.ChooseKmiDialog
 import me.veilsu.manager.ui.kernelFlash.KpmPatchOption
 import me.veilsu.manager.ui.kernelFlash.component.SlotSelectionDialog
+import me.veilsu.manager.ui.component.dialog.ConfirmResult
+import me.veilsu.manager.ui.component.dialog.rememberConfirmDialog
 import me.veilsu.manager.ui.component.dialog.rememberLoadingDialog
 import me.veilsu.manager.ui.kernelFlash.rememberAnyKernel3State
 import me.veilsu.manager.ui.navigation3.LocalNavigator
@@ -38,7 +42,9 @@ import me.veilsu.manager.ui.util.getAvailablePartitions
 import me.veilsu.manager.ui.util.getCurrentKmi
 import me.veilsu.manager.ui.util.getDefaultPartition
 import me.veilsu.manager.ui.util.getLoadedBlockableModules
+import me.veilsu.manager.ui.util.KNOWN_BLOCKABLE_MODULES
 import me.veilsu.manager.ui.util.isBlockModulesValid
+import me.veilsu.manager.ui.util.parseBlockModules
 import me.veilsu.manager.ui.util.getSlotSuffix
 import me.veilsu.manager.ui.util.isAbDevice
 import android.net.Uri
@@ -62,6 +68,7 @@ fun InstallScreen(
     val resources = LocalResources.current
     var probeJob by remember { mutableStateOf<Job?>(null) }
     val loadingDialog = rememberLoadingDialog()
+    val confirmDialog = rememberConfirmDialog()
 
     val installMethodState = rememberSaveable { mutableStateOf<InstallMethod?>(null) }
     var installMethod by installMethodState
@@ -80,7 +87,12 @@ fun InstallScreen(
     val kpmEnabled = kpmPatchOption.enabled
     val kpmUndo = kpmPatchOption.undo
     val canPatchKpm = android.os.Build.SUPPORTED_ABIS.contains("arm64-v8a")
+    val rootAvailable by produceState(initialValue = false) { value = rootAvailable() }
+    var kpmKernelModuleEnabled by rememberSaveable { mutableStateOf(false) }
+    var kpmKernelModuleUri by rememberSaveable { mutableStateOf<Uri?>(null) }
     val isStandaloneKpm = installMethod == null && canPatchKpm && kpmEnabled
+    val isStandaloneKpmModule =
+        installMethod == null && canPatchKpm && rootAvailable && kpmKernelModuleEnabled
     var kpmBootExpanded by rememberSaveable { mutableStateOf(false) }
     var kpmBootUri by rememberSaveable { mutableStateOf<Uri?>(null) }
     var blockModulesEnabled by rememberSaveable { mutableStateOf(false) }
@@ -102,11 +114,22 @@ fun InstallScreen(
         }
     }
 
-    // Read the configuration from the boot image ksu_config
     val bootConfig by produceState(initialValue = BootConfig()) { value = getBootConfig() }
     var spoofEnabled by rememberSaveable { mutableStateOf(false) }
-    var spoofRelease by rememberSaveable { mutableStateOf(SuSFSManager.getKernelSpoofRelease()) }
-    var spoofVersion by rememberSaveable { mutableStateOf(SuSFSManager.getKernelSpoofVersion()) }
+    var spoofRelease by rememberSaveable { mutableStateOf("") }
+    var spoofVersion by rememberSaveable { mutableStateOf("") }
+    var spoofPrefilled by rememberSaveable { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        if (!spoofPrefilled) {
+            spoofPrefilled = true
+            val (release, version) = withContext(Dispatchers.IO) {
+                SuSFSManager.getKernelSpoofRelease() to SuSFSManager.getKernelSpoofVersion()
+            }
+            if (spoofRelease.isEmpty()) spoofRelease = release
+            if (spoofVersion.isEmpty()) spoofVersion = version
+        }
+    }
 
     val effectiveSpoofRelease = if (spoofEnabled) spoofRelease else ""
     val effectiveSpoofVersion = if (spoofEnabled) spoofVersion else ""
@@ -121,37 +144,26 @@ fun InstallScreen(
     }
 
     val currentKmi by produceState(initialValue = "") { value = getCurrentKmi() }
-    val partitions by produceState(initialValue = emptyList()) { value = getAvailablePartitions() }
-    val defaultPartition by produceState(initialValue = "") { value = getDefaultPartition() }
-    val rootAvailable by produceState(initialValue = false) { value = rootAvailable() }
-
-    var kpmKernelModuleEnabled by rememberSaveable { mutableStateOf(false) }
-    var kpmKernelModuleUri by rememberSaveable { mutableStateOf<Uri?>(null) }
-
-    val isStandaloneKpmModule =
-        installMethod == null && canPatchKpm && rootAvailable && kpmKernelModuleEnabled
-
     val kpmBundledModuleAvailable by produceState(initialValue = false, currentKmi) {
         value = currentKmi.isNotBlank() && runCatching {
             ksuApp.assets.open("kpm/modules/kpm-$currentKmi.ko").close()
         }.isSuccess
     }
-
     // A boot image that already carries kpimg serves KPM from the kernel
     // itself, so loading a separate kpm.ko is unnecessary and confusing.
     // Unknown results fail closed and hide the module area as well.
     val kpmHost by produceState(initialValue = KpmHost.Unknown, rootAvailable, canPatchKpm) {
         value = if (rootAvailable && canPatchKpm) getKpmHost() else KpmHost.Unknown
     }
-
     val kpmKernelModuleAvailable =
         kpmHost == KpmHost.Module || kpmHost == KpmHost.None
-
     LaunchedEffect(kpmHost) {
         // The boot kernel serves KPM itself; a persisted module toggle from
         // an earlier boot would no longer make sense.
         if (kpmHost == KpmHost.BootImage) kpmKernelModuleEnabled = false
     }
+    val partitions by produceState(initialValue = emptyList()) { value = getAvailablePartitions() }
+    val defaultPartition by produceState(initialValue = "") { value = getDefaultPartition() }
     val isAbDevice by produceState(initialValue = false) { value = isAbDevice() }
     val isGkiDevice by produceState(initialValue = false) { value = getKernelVersion().isGKI() }
 
@@ -233,7 +245,7 @@ fun InstallScreen(
     }
 
     val blockModulesInvalidMessage = stringResource(R.string.install_block_modules_invalid)
-    val onInstall = {
+    val doInstall: () -> Unit = {
         if (isStandaloneKpmModule && kpmKernelModuleAvailable) {
             if (kpmKernelModuleUri == null && !kpmBundledModuleAvailable) {
                 showMessage(resources.getString(R.string.install_kpm_module_unavailable))
@@ -300,6 +312,30 @@ fun InstallScreen(
                         )
                     )
                 }
+            }
+        }
+    }
+
+    val onInstall: () -> Unit = {
+        val unknownModules = if (isStandaloneKpm || isStandaloneKpmModule || !isBlockModulesValid(effectiveBlockModules)) {
+            emptyList()
+        } else {
+            parseBlockModules(effectiveBlockModules).filter { it !in KNOWN_BLOCKABLE_MODULES }
+        }
+        if (unknownModules.isEmpty()) {
+            doInstall()
+        } else {
+            scope.launch {
+                val result = confirmDialog.awaitConfirm(
+                    title = resources.getString(R.string.install_block_modules_unknown_title),
+                    content = resources.getString(
+                        R.string.install_block_modules_unknown_content,
+                        unknownModules.joinToString(", ")
+                    ),
+                    confirm = resources.getString(R.string.confirm),
+                    dismiss = resources.getString(R.string.cancel)
+                )
+                if (result == ConfirmResult.Confirmed) doInstall()
             }
         }
     }
@@ -525,6 +561,16 @@ fun InstallScreen(
             })
         },
         onClearKpmKernelModule = { kpmKernelModuleUri = null },
+        onTestKpmKernelModule = {
+            if (kpmKernelModuleUri == null && !kpmBundledModuleAvailable) {
+                showMessage(resources.getString(R.string.install_kpm_module_unavailable))
+            } else {
+                navigator.push(Route.Flash(FlashIt.InstallKpmModule(kpmKernelModuleUri, persist = false)))
+            }
+        },
+        onRemoveKpmKernelModule = {
+            navigator.push(Route.Flash(FlashIt.RemoveKpmModule))
+        },
         onSelectAllowShell = {
             allowShell = it
         },
@@ -569,16 +615,6 @@ fun InstallScreen(
                     }
                 }
             }
-        },
-        onTestKpmKernelModule = {
-            if (kpmKernelModuleUri == null && !kpmBundledModuleAvailable) {
-                showMessage(resources.getString(R.string.install_kpm_module_unavailable))
-            } else {
-                navigator.push(Route.Flash(FlashIt.InstallKpmModule(kpmKernelModuleUri, persist = false)))
-            }
-        },
-        onRemoveKpmKernelModule = {
-            navigator.push(Route.Flash(FlashIt.RemoveKpmModule))
         },
         onHorizonKernelSelected = { method ->
             anyKernel3State.onHorizonKernelSelected(method)

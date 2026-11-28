@@ -78,7 +78,7 @@ import top.yukonga.miuix.kmp.basic.SnackbarHost
 import top.yukonga.miuix.kmp.basic.SnackbarHostState
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextButton
-import top.yukonga.miuix.kmp.basic.TopAppBar
+import me.veilsu.manager.ui.component.miuix.TopAppBar
 import top.yukonga.miuix.kmp.blur.LayerBackdrop
 import top.yukonga.miuix.kmp.blur.layerBackdrop
 import top.yukonga.miuix.kmp.icon.MiuixIcons
@@ -92,6 +92,7 @@ import top.yukonga.miuix.kmp.icon.extended.MoveFile
 import top.yukonga.miuix.kmp.preference.ArrowPreference
 import top.yukonga.miuix.kmp.preference.CheckboxPreference
 import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.theme.MiuixTheme.colorScheme
 import top.yukonga.miuix.kmp.utils.PressFeedbackType
 import top.yukonga.miuix.kmp.utils.overScrollVertical
@@ -281,14 +282,66 @@ internal fun InstallScreenMiuix(
                                 .fillMaxWidth()
                                 .padding(top = 12.dp),
                         ) {
-                            OverlayDropdownPreference(
-                                title = stringResource(R.string.install_kpm_operation),
-                                summary = stringResource(R.string.install_kpm_summary),
-                                items = listOf(stringResource(R.string.kpm_follow_kernel_file), stringResource(R.string.enable_kpm_patch), stringResource(R.string.enable_kpm_undo_patch)),
-                                selectedIndex = KpmPatchOption.entries.indexOf(uiState.kpmPatchOption),
-                                onSelectedIndexChange = { actions.onKpmOptionChange(KpmPatchOption.entries[it]) },
-                            )
-                            AnimatedVisibility(visible = uiState.canSelectKpmBoot) {
+                            AnimatedVisibility(
+                                visible = !uiState.rootAvailable || !uiState.kpmKernelModuleEnabled,
+                                enter = expandVertically() + fadeIn(),
+                                exit = shrinkVertically() + fadeOut(),
+                            ) {
+                                OverlayDropdownPreference(
+                                    title = stringResource(R.string.install_kpm_operation),
+                                    summary = stringResource(R.string.install_kpm_summary),
+                                    items = listOf(stringResource(R.string.kpm_follow_kernel_file), stringResource(R.string.enable_kpm_patch), stringResource(R.string.enable_kpm_undo_patch)),
+                                    selectedIndex = KpmPatchOption.entries.indexOf(uiState.kpmPatchOption),
+                                    onSelectedIndexChange = { actions.onKpmOptionChange(KpmPatchOption.entries[it]) },
+                                )
+                            }
+                            AnimatedVisibility(
+                                visible = uiState.rootAvailable && uiState.kpmKernelModuleAvailable,
+                                enter = expandVertically() + fadeIn(),
+                                exit = shrinkVertically() + fadeOut(),
+                            ) {
+                                CheckboxPreference(
+                                    title = stringResource(R.string.install_kpm_kernel_module),
+                                    summary = stringResource(R.string.install_kpm_kernel_module_summary),
+                                    checked = uiState.kpmKernelModuleEnabled,
+                                    onCheckedChange = actions.onToggleKpmKernelModule,
+                                )
+                            }
+                            AnimatedVisibility(
+                                visible = uiState.rootAvailable && uiState.kpmKernelModuleAvailable &&
+                                    uiState.kpmKernelModuleEnabled,
+                                enter = expandVertically() + fadeIn(),
+                                exit = shrinkVertically() + fadeOut(),
+                            ) {
+                                Column {
+                                    val custom = uiState.kpmKernelModuleUri
+                                    val summary = when {
+                                        custom != null -> custom.lastPathSegment.orEmpty()
+                                        uiState.kpmBundledModuleAvailable ->
+                                            stringResource(R.string.install_kpm_module_bundled, "kpm-${uiState.currentKmi}.ko")
+                                        else -> stringResource(R.string.install_kpm_module_bundled_missing)
+                                    }
+                                    BasicComponent(
+                                        title = stringResource(R.string.install_kpm_module_custom),
+                                        summary = summary,
+                                        onClick = actions.onSelectKpmKernelModule,
+                                        endActions = {
+                                            if (custom != null) {
+                                                IconButton(onClick = actions.onClearKpmKernelModule) {
+                                                    Icon(MiuixIcons.Close, stringResource(R.string.install_kpm_module_clear))
+                                                }
+                                            }
+                                        },
+                                    )
+                                }
+                            }
+                            if (uiState.rootAvailable && uiState.kpmKernelModuleAvailable) {
+                                KpmModuleActionsMiuix(
+                                    onTestLoad = actions.onTestKpmKernelModule,
+                                    onRemoveLoad = actions.onRemoveKpmKernelModule,
+                                )
+                            }
+                            AnimatedVisibility(visible = uiState.rootAvailable && uiState.canSelectKpmBoot) {
                                 Column {
                                     BasicComponent(
                                         title = stringResource(R.string.install_kpm_manual),
@@ -462,7 +515,7 @@ internal fun InstallScreenMiuix(
                             }
                         }
                     }
-                    
+
                     TextButton(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -482,6 +535,49 @@ internal fun InstallScreenMiuix(
                     )
                 }
             }
+        }
+    }
+}
+
+/**
+ * Miuix renders TextButtons as their own surfaces; the padded block keeps the pair aligned
+ * with the preference rows and gives the destructive action an error-tinted surface.
+ */
+@Composable
+private fun KpmModuleActionsMiuix(
+    onTestLoad: () -> Unit,
+    onRemoveLoad: () -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Text(
+            text = stringResource(R.string.install_kpm_module_actions_summary),
+            style = MiuixTheme.textStyles.footnote2,
+            color = colorScheme.onSurfaceVariantSummary,
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            TextButton(
+                modifier = Modifier.weight(1f),
+                text = stringResource(R.string.install_kpm_test_load),
+                colors = ButtonDefaults.textButtonColorsPrimary(),
+                onClick = onTestLoad,
+            )
+            TextButton(
+                modifier = Modifier.weight(1f),
+                text = stringResource(R.string.install_kpm_remove_load),
+                colors = ButtonDefaults.textButtonColors(
+                    color = colorScheme.errorContainer,
+                    textColor = colorScheme.onErrorContainer,
+                ),
+                onClick = onRemoveLoad,
+            )
         }
     }
 }

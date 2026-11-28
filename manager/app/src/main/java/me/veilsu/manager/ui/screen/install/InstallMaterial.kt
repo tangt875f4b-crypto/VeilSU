@@ -21,9 +21,9 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.SdStorage
 import androidx.compose.material.icons.filled.ExpandMore
-import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilledTonalButton
@@ -31,7 +31,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import me.veilsu.manager.ui.util.customText
 import me.veilsu.manager.ui.util.CustomTextKey
-import androidx.compose.material3.LargeFlexibleTopAppBar
+import me.veilsu.manager.ui.component.material.LargeFlexibleTopAppBar
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SnackbarHostState
@@ -217,21 +217,18 @@ internal fun InstallScreenMaterial(
                             onCheckedChange = actions.onToggleKpmKernelModule,
                         )
                     }
-
                     item(
                         visible = uiState.rootAvailable &&
                             uiState.kpmKernelModuleAvailable &&
                             uiState.kpmKernelModuleEnabled,
                     ) {
                         val custom = uiState.kpmKernelModuleUri
-
                         val summary = when {
                             custom != null -> custom.lastPathSegment.orEmpty()
                             uiState.kpmBundledModuleAvailable ->
                                 stringResource(R.string.install_kpm_module_bundled, "kpm-${uiState.currentKmi}.ko")
                             else -> stringResource(R.string.install_kpm_module_bundled_missing)
                         }
-
                         SegmentedListItem(
                             headlineContent = { Text(stringResource(R.string.install_kpm_module_custom)) },
                             supportingContent = { Text(summary) },
@@ -245,14 +242,12 @@ internal fun InstallScreenMaterial(
                             },
                         )
                     }
-
                     item(visible = uiState.rootAvailable && uiState.kpmKernelModuleAvailable) {
                         KpmModuleActionCard(
                             onTestLoad = actions.onTestKpmKernelModule,
                             onRemoveLoad = actions.onRemoveKpmKernelModule,
                         )
                     }
-
                     item(visible = uiState.rootAvailable && uiState.canSelectKpmBoot) {
                         SegmentedListItem(
                             headlineContent = { Text(stringResource(R.string.install_kpm_manual)) },
@@ -430,7 +425,6 @@ private fun KpmModuleActionCard(
     onTestLoad: () -> Unit,
     onRemoveLoad: () -> Unit,
 ) {
-
     SegmentedItemContainer {
         Column(
             modifier = Modifier
@@ -443,12 +437,10 @@ private fun KpmModuleActionCard(
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-
                 FilledTonalButton(
                     onClick = onTestLoad,
                     modifier = Modifier.weight(1f),
@@ -459,16 +451,13 @@ private fun KpmModuleActionCard(
                         contentDescription = null,
                         modifier = Modifier.size(18.dp),
                     )
-
                     Spacer(Modifier.size(8.dp))
-
                     Text(
                         text = stringResource(R.string.install_kpm_test_load),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
-
                 FilledTonalButton(
                     onClick = onRemoveLoad,
                     modifier = Modifier.weight(1f),
@@ -483,22 +472,16 @@ private fun KpmModuleActionCard(
                         contentDescription = null,
                         modifier = Modifier.size(18.dp),
                     )
-
                     Spacer(Modifier.size(8.dp))
-
                     Text(
                         text = stringResource(R.string.install_kpm_remove_load),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
-
             }
-
         }
-
     }
-
 }
 
 @Composable

@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.key
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -38,6 +39,7 @@ import me.veilsu.manager.ui.component.HomeCardStickerOverlays
 import me.veilsu.manager.ui.component.miuix.AppCard
 import me.veilsu.manager.ui.theme.LocalBackgroundImagePath
 import me.veilsu.manager.ui.theme.isInDarkTheme
+import me.veilsu.manager.ui.component.background.DynamicWallpaperBackground
 import me.veilsu.manager.ui.util.CustomTextKey
 import me.veilsu.manager.ui.util.HomeCardImageStyle
 import me.veilsu.manager.ui.util.HomeStatusAlignment
@@ -61,7 +63,8 @@ fun ImmersiveStatusCardMiuix(
     val pillScale = HomeStatusStyle.coercePillScale(state.homePillScale)
     val widthFraction = HomeStatusStyle.coerceWidth(state.homeStatusWidthFraction)
     val hasBackground = LocalBackgroundImagePath.current.isNotEmpty()
-    val showImage = shouldShowHomeCardImage(
+    val hasDynamicCard = state.dynamicHomeCardPath.isNotEmpty()
+    val showImage = hasDynamicCard || shouldShowHomeCardImage(
         path = state.homeCardImagePath,
         hasCustomBackground = hasBackground,
         showWithoutBackground = state.showHomeCardImageWithoutBackground,
@@ -179,17 +182,30 @@ fun ImmersiveStatusCardMiuix(
                     .border(1.dp, borderColor, bannerShape)
                     .clickable(enabled = clickEnabled, onClick = onClick)
             ) {
-                AsyncImage(
-                    model = ImageRequest.Builder(LocalContext.current)
-                        .data(File(state.homeCardImagePath))
-                        .crossfade(true)
-                        .precision(Precision.EXACT)
-                        .build(),
-                    contentDescription = null,
-                    contentScale = ContentScale.Crop,
-                    filterQuality = FilterQuality.High,
-                    modifier = Modifier.fillMaxSize(),
-                )
+                if (hasDynamicCard) {
+                    key(state.dynamicHomeCardPath, state.dynamicHomeCardUpdatedAt) {
+                        DynamicWallpaperBackground(
+                            path = state.dynamicHomeCardPath,
+                            muted = true,
+                            transform = state.dynamicHomeCardTransform,
+                            fps = state.dynamicPlaybackFps,
+                            speed = state.dynamicPlaybackSpeed,
+                            modifier = Modifier.fillMaxSize(),
+                        )
+                    }
+                } else {
+                    AsyncImage(
+                        model = ImageRequest.Builder(LocalContext.current)
+                            .data(File(state.homeCardImagePath))
+                            .crossfade(true)
+                            .precision(Precision.EXACT)
+                            .build(),
+                        contentDescription = null,
+                        contentScale = ContentScale.Crop,
+                        filterQuality = FilterQuality.High,
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                }
                 HomeCardStickerOverlays(
                     stickers = state.homeCardStickers,
                     cardWidth = maxWidth,
