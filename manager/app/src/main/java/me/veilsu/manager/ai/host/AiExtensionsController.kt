@@ -483,7 +483,7 @@ object AiExtensionsController : AiExtensionsService {
             "uninstall" -> {
                 val moduleName = requireModuleName(name)
                 KpmOperations.uninstall(ksuApp, moduleName).getOrThrow()
-                "Unloaded $moduleName and removed its boot-time copy."
+                "Removed the boot-time copy of $moduleName; if the live module was busy, reboot to clear it."
             }
 
             else -> throw IllegalArgumentException(
