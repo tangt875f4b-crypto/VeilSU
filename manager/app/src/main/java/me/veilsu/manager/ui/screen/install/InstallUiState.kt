@@ -24,7 +24,12 @@ internal data class InstallUiState(
     val kpmPatchOption: KpmPatchOption,
     val kpmBootExpanded: Boolean,
     val kpmBootUri: android.net.Uri?,
+    val kpmKernelModuleEnabled: Boolean,
+    val kpmKernelModuleUri: android.net.Uri?,
+    val kpmKernelModuleAvailable: Boolean,
+    val kpmBundledModuleAvailable: Boolean,
     val canPatchKpm: Boolean,
+    val rootAvailable: Boolean,
     val blockModulesEnabled: Boolean,
     val blockModules: String,
     val blockModulesValid: Boolean,
@@ -34,9 +39,13 @@ internal data class InstallUiState(
 ) {
     val kpmEnabled: Boolean get() = kpmPatchOption.enabled
     val canInstall: Boolean
-        get() = if (installMethod == null) canPatchKpm && kpmEnabled else blockModulesValid
+        get() = if (installMethod == null) {
+            canPatchKpm && rootAvailable &&
+                (kpmEnabled || (kpmKernelModuleAvailable && kpmKernelModuleEnabled))
+        } else blockModulesValid
     val canSelectKpmBoot: Boolean
-        get() = kpmEnabled && installMethod !is InstallMethod.HorizonKernel
+        get() = rootAvailable && kpmEnabled && !kpmKernelModuleEnabled &&
+            installMethod !is InstallMethod.HorizonKernel
 }
 
 @Immutable
@@ -54,6 +63,9 @@ internal data class InstallScreenActions(
     val onKpmOptionChange: (KpmPatchOption) -> Unit,
     val onToggleKpmBoot: () -> Unit,
     val onClearKpmBoot: () -> Unit,
+    val onToggleKpmKernelModule: (Boolean) -> Unit,
+    val onSelectKpmKernelModule: () -> Unit,
+    val onClearKpmKernelModule: () -> Unit,
     val onSelectAllowShell: (Boolean) -> Unit,
     val onSelectEnableAdb: (Boolean) -> Unit,
     val onSelectForceBackup: (Boolean) -> Unit,
@@ -64,4 +76,6 @@ internal data class InstallScreenActions(
     val onSpoofEnabledChange: (Boolean) -> Unit,
     val onSpoofReleaseChange: (String) -> Unit,
     val onSpoofVersionChange: (String) -> Unit,
+    val onTestKpmKernelModule: () -> Unit = {},
+    val onRemoveKpmKernelModule: () -> Unit = {},
 )
