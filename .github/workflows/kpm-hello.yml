@@ -5,7 +5,6 @@
 # skeleton grows KMI-specific code.
 name: Build VeilSU hello KPM
 
-
 on:
   push:
     branches: [veilsu-v1]
@@ -18,7 +17,6 @@ on:
       - "kpm/veilsu-hello/**"
       - ".github/workflows/kpm-hello.yml"
   workflow_dispatch:
-
 
 jobs:
   build-hello-kpm:
