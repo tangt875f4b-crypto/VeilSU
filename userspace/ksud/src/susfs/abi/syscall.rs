@@ -23,14 +23,15 @@ use super::types::{
     SusfsSusPathUidFilter, SusfsUname, SusfsVariant, SusfsVersion,
 };
 
-/// Dispatch a SuSFS command and return `Ok(())` when the kernel reports no
-/// error.
+/// Dispatch a SuSFS command and return `Ok(())` only when the kernel
+/// reports success.
 ///
-/// The kernel always fills `payload.err` (sentinel
-/// [`ERR_CMD_NOT_SUPPORTED`] when the feature is off, otherwise a `0`-on-
-/// success / errno-style value), so this is the single chokepoint where
-/// `cmd != ERR_CMD_NOT_SUPPORTED && cmd != 0` is converted into an
-/// `anyhow::Error`.
+/// The kernel writes a result code into `payload.err`: `0` on success, an
+/// errno-style negative value on failure, or the
+/// [`ERR_CMD_NOT_SUPPORTED`] sentinel when the command (or its
+/// `CONFIG_KSU_SUSFS_*` feature) is not compiled into the running kernel.
+/// This mirrors the upstream `ksu_susfs` CLI, which returns 126 for an
+/// unsupported operation instead of pretending it worked.
 pub fn send<T: HasErr>(cmd: u32, payload: &mut T, op_name: &str) -> anyhow::Result<()> {
     // Pass the payload as a raw `*mut c_void` so the `&mut T` reference
     // isn't moved into the syscall (the FFI signature expects a raw
@@ -47,8 +48,11 @@ pub fn send<T: HasErr>(cmd: u32, payload: &mut T, op_name: &str) -> anyhow::Resu
     };
 
     let err = payload.err();
-    if err == 0 || err == ERR_CMD_NOT_SUPPORTED {
+    if err == 0 {
         return Ok(());
+    }
+    if err == ERR_CMD_NOT_SUPPORTED {
+        anyhow::bail!("{op_name}: SUSFS operation not supported, enable it in the running kernel");
     }
     anyhow::bail!("{op_name}: kernel returned err={err}")
 }
