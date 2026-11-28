@@ -47,6 +47,10 @@ sealed interface Route : NavKey, Parcelable {
 
     @Parcelize
     @Serializable
+    data object UpdateSources : Route
+
+    @Parcelize
+    @Serializable
     data object Sulog : Route
 
     
@@ -103,10 +107,14 @@ sealed interface Route : NavKey, Parcelable {
     @Serializable
     data object AppIcon : Route
 
-    
+
     @Parcelize
     @Serializable
     data class BackgroundCrop(val sourcePath: String) : Route
+
+    @Parcelize
+    @Serializable
+    data class DynamicWallpaper(val card: Boolean = false) : Route
 
     @Parcelize
     @Serializable
@@ -192,6 +200,9 @@ sealed interface Route : NavKey, Parcelable {
     @Serializable
     data object VersionSpoof : Route
 
+    @Parcelize
+    @Serializable
+    
     @Parcelize
     @Serializable
     data object AiAssistant : Route

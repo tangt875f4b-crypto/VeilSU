@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.net.Uri
 import me.veilsu.manager.R
+import me.veilsu.manager.ui.navigation3.deleteExternalZipCache
 import me.veilsu.manager.ui.kernelFlash.util.AssetsUtil
 import me.veilsu.manager.ui.kernelFlash.util.KpmTools
 import me.veilsu.manager.ui.util.getRootShell
@@ -158,6 +159,7 @@ class HorizonKernelWorker(
             } catch (e: Exception) {
                 state.addLog("Failed to clean flash directory: ${e.message}")
             }
+            deleteExternalZipCache(context, uri)
             val error = failure
             if (error != null) {
                 state.setError(error.message ?: context.getString(R.string.horizon_unknown_error))
