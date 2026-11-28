@@ -22,6 +22,8 @@ import me.veilsu.manager.ai.api.AiFeatureBridge
 import me.veilsu.manager.ai.host.ManagerAiHost
 import me.veilsu.manager.data.repository.SettingsRepositoryImpl
 import me.veilsu.manager.data.repository.SuperUserRepositoryImpl
+import me.veilsu.manager.data.repository.ThemeMediaInterceptor
+import me.veilsu.manager.data.repository.protectThemeStoreRedirectCredentials
 import me.veilsu.manager.ui.util.BuiltinAppIcons
 import me.veilsu.manager.ui.viewmodel.SuperUserViewModel
 import kotlinx.coroutines.CoroutineScope
@@ -39,7 +41,7 @@ import kotlin.time.Duration.Companion.milliseconds
 
 lateinit var ksuApp: KernelSUApplication
 
-class KernelSUApplication : Application(), ViewModelStoreOwner {
+class KernelSUApplication : Application(), ViewModelStoreOwner, coil.ImageLoaderFactory {
 
     companion object {
         private const val TAG = "KernelSUApplication"
@@ -70,6 +72,30 @@ class KernelSUApplication : Application(), ViewModelStoreOwner {
 
     override fun attachBaseContext(base: Context) {
         super.attachBaseContext(me.veilsu.manager.ui.util.LocaleHelper.wrap(base))
+    }
+
+    /**
+     * Theme screenshots use the default Coil loader, so it must be able to open
+     * CNB media envelopes and must drop theme credentials on cross-origin
+     * redirects. Other images are unaffected: the interceptor only touches
+     * responses that start with the SKM1 magic.
+     */
+    override fun newImageLoader(): coil.ImageLoader {
+        val builder = coil.ImageLoader.Builder(this).crossfade(true)
+            // Shares the theme preview loader's memory cache so a cover decoded for the store
+            // grid is reused by the detail screen instead of being decoded a second time.
+            .memoryCache { me.veilsu.manager.data.repository.ThemeStorePreviewLoader.sharedMemoryCache(this) }
+        if (::okhttpClient.isInitialized) {
+            val client = okhttpClient.newBuilder()
+                .addInterceptor(ThemeMediaInterceptor)
+                .protectThemeStoreRedirectCredentials()
+                // Screenshots are loaded through this loader; send them straight to the
+                // CNB prefix once a store redirect has revealed it.
+                .addInterceptor(me.veilsu.manager.data.repository.ThemeStoreMediaOffload)
+                .build()
+            builder.okHttpClient(client)
+        }
+        return builder.build()
     }
 
     private fun isUserUnlocked(): Boolean =
