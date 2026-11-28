@@ -1,0 +1,56 @@
+# Build the VeilSU hello KPM skeleton (LKM-style) for android17-6.18.
+# Mirrors the aarch64 part of veilsu.yml's build-lkm job: same DDK image,
+# same KDIR preparation, same strip step. Only the target KMI is fixed to
+# android17-6.18 (OnePlus 15 / Android 17); extend the matrix if the
+# skeleton grows KMI-specific code.
+name: Build VeilSU hello KPM
+
+on:
+  push:
+    branches: [veilsu-v1]
+    paths:
+      - "kpm/veilsu-hello/**"
+      - ".github/workflows/kpm-hello.yml"
+  pull_request:
+    branches: [veilsu-v1]
+    paths:
+      - "kpm/veilsu-hello/**"
+      - ".github/workflows/kpm-hello.yml"
+  workflow_dispatch:
+
+jobs:
+  build-hello-kpm:
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/ylarod/ddk-min:android17-6.18-20260828
+      options: --privileged
+    env:
+      KMI: android17-6.18
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - name: Build veilsu_hello.ko (aarch64)
+        run: |
+          set -eux
+          # Same KDIR preparation as veilsu.yml build-lkm (aarch64).
+          if [ -d "/opt/ddk/kdir/${KMI}" ]; then
+            export KDIR="/opt/ddk/kdir/${KMI}"
+          else
+            mkdir -p "/opt/ddk/kdir/${KMI}"
+            export KDIR="/opt/ddk/kdir/${KMI}"
+            pushd "/opt/ddk/src/${KMI}"
+            make O="$KDIR" gki_defconfig
+            make O="$KDIR" modules_prepare
+            make O="$KDIR" security/selinux/built-in.a
+            popd
+          fi
+          cd kpm/veilsu-hello
+          make -j"$(nproc)" KDIR="$KDIR" CC=clang
+          mkdir -p "${GITHUB_WORKSPACE}/out"
+          cp veilsu_hello.ko "${GITHUB_WORKSPACE}/out/veilsu_hello.ko"
+          llvm-strip -d "${GITHUB_WORKSPACE}/out/veilsu_hello.ko"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: veilsu-hello-android17-6.18
+          path: out/veilsu_hello.ko
