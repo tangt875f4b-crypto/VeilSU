@@ -29,7 +29,12 @@
 #define DYNAMIC_MANAGER_FILE "/data/adb/ksu/.dynamic_managers"
 #define DYNAMIC_MANAGER_MAGIC 0x4d534b44
 #define DYNAMIC_MANAGER_VERSION 1
-#define DYNAMIC_MANAGER_MAX_CERT_SIZE 1024
+/*
+ * Registration and verification must agree on the certificate ceiling,
+ * otherwise an entry can be accepted here and then never verify because
+ * check_block() refuses to read its certificate.
+ */
+#define DYNAMIC_MANAGER_MAX_CERT_SIZE KSU_APK_CERT_MAX_SIZE
 
 struct dynamic_manager_state {
     __u32 magic;
