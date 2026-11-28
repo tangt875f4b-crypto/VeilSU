@@ -52,6 +52,13 @@ pub fn set_manager(pkg: &str) -> Result<()> {
 }
 
 pub fn insmod(module: &Path, params: &[String]) -> Result<()> {
+    load_module(module, params)?;
+    println!("Loaded kernel module: {}", module.display());
+    Ok(())
+}
+
+/// Load a kernel module without CLI output, for boot-time callers such as KPM.
+pub fn load_module(module: &Path, params: &[String]) -> Result<()> {
     // KSU_IOCTL_LOOKUP_SYMBOLS was introduced in UAPI v6. Prefer resolving the
     // module's undefined (non-exported) symbols through it; older kernels, or a
     // failed lookup, fall back to /proc/kallsyms.
@@ -77,7 +84,6 @@ pub fn insmod(module: &Path, params: &[String]) -> Result<()> {
     }
     .with_context(|| format!("load module failed: {}", module.display()))?;
 
-    println!("Loaded kernel module: {}", module.display());
     Ok(())
 }
 
