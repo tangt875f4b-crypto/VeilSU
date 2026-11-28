@@ -286,7 +286,7 @@
     <string name="settings_section_icon_text_summary">桌面图标与页面自定义文字</string>
     <string name="settings_section_bottom_bar">底栏与导航</string>
     <string name="settings_section_bottom_bar_summary">自定义底栏图标、悬浮底栏、玻璃效果和角标</string>
-    <string name="settings_section_interaction">交互与手势</string>
+    <string name="settings_section_top_bar">顶部栏</string><string name="settings_section_top_bar_summary">标准、悬浮或液态玻璃顶栏，大标题随滚动收拢为居中标题</string><string name="settings_top_bar_style">顶栏样式</string><string name="settings_top_bar_style_summary">选择页面顶栏与搜索框的绘制方式</string><string name="settings_top_bar_style_standard">标准</string><string name="settings_top_bar_style_floating">悬浮</string><string name="settings_top_bar_style_floating_glass">悬浮玻璃</string><string name="settings_top_bar_pill_fade">按钮背景随滚动淡入</string><string name="settings_top_bar_pill_fade_summary">开启后按钮背景在页面滚动时才会完全显现；关闭后始终显示。</string><string name="settings_section_interaction">交互与手势</string>
     <string name="settings_section_interaction_summary">预测性返回、滑动关闭、翻页手势和页面缩放</string>
     <string name="settings_section_details">界面细节</string>
     <string name="settings_section_details_summary">模块描述的显示密度</string>
@@ -366,7 +366,7 @@
     <string name="install_block_modules_list">要屏蔽的模块</string>
     <string name="install_block_modules_summary">以逗号分隔的模块名，启动时阻止其加载，例如 oplus_secure_guard。留空则不屏蔽任何模块。</string>
     <string name="install_block_modules_invalid">模块名只能包含字母、数字和下划线，且每个不超过 64 个字符。</string>
-    <string name="advanced_options">高级选项</string>
+    <string name="install_block_modules_unknown_title">确认屏蔽未知模块？</string><string name="install_block_modules_unknown_content">以下模块不在已知反 root 模块列表中：%1$s。如果第一阶段 init 需要其中某个模块，设备可能无法开机。请确认它们可以安全屏蔽后再继续。</string><string name="advanced_options">高级选项</string>
     <string name="expand">展开</string>
     <string name="download_channel_name">模块下载</string>
     <string name="download_progress_title">正在下载 %s</string>
@@ -568,7 +568,7 @@
     <string name="kpm_install_failed">kpm 模块加载失败</string>
     <string name="kpm_args">参数</string>
     <string name="kpm_control">执行</string>
-    <string name="close_notice">关闭</string>
+    <string name="kpm_commands_title">可用命令</string><string name="kpm_commands_loading">正在读取命令…</string><string name="kpm_commands_empty">该模块未声明命令，可直接手动输入参数。</string><string name="kpm_command_usage">用法：%1$s</string><string name="kpm_control_visual">可视化</string><string name="kpm_control_raw">原始参数</string><string name="kpm_control_select_command">选择命令后可可视化填写参数。</string><string name="kpm_control_preview">参数预览</string><string name="kpm_control_fixed">固定：%1$s</string><string name="kpm_control_optional">可选</string><string name="kpm_control_include">包含</string><string name="kpm_control_incomplete">请先填写必填参数。</string><string name="kpm_control_run">运行</string><string name="kpm_control_copy_result">复制结果</string><string name="kpm_show_help">模块帮助</string><string name="kpm_help_empty">模块没有返回帮助信息。</string><string name="kpm_output">输出</string><string name="kpm_control_running">正在执行…</string><string name="kpm_control_failed">命令执行失败</string><string name="kpm_kernel_log">内核日志</string><string name="close_notice">关闭</string>
     <string name="kernel_module_notice">以下内核模块功能由 KernelPatch 开发，并经过修改后加入了 VeilSU 的内核模块功能</string>
     <string name="kpm_control_success">成功</string>
     <string name="not_supported">不支持</string>
@@ -579,8 +579,8 @@
     <string name="kpm_embed_description">立即加载并保存，开机时自动加载。请仅安装可信模块。</string>
     <string name="invalid_file_type">文件类型不正确！请选择 .kpm 文件</string>
     <string name="confirm_uninstall_title_with_filename">卸载</string>
-    <string name="confirm_uninstall_content">以下 KPM 将被卸载：%s</string>
-    <string name="cancel">取消</string>
+    <string name="confirm_uninstall_content">确定移除 %s？即使当前内核无法卸载，也会删除 /data/adb/kpm 中的启动副本；本次开机可能仍会保持加载，重启后彻底移除。</string>
+    <string name="kpm_uninstall_file_removed_reboot">已删除 /data/adb/kpm 中的启动副本；当前开机仍会保持加载，重启后彻底移除。</string><string name="cancel">取消</string>
     <!-- Tools -->
     <string name="settings_tools">工具</string>
     <string name="settings_tools_summary">更多高级功能</string>
@@ -775,7 +775,7 @@
     <string name="susfs_reset_loop_paths_title">重置循环路径</string>
     <string name="susfs_reset_loop_paths_message">确定要清空所有 SuS 循环路径吗？此操作无法撤销。</string>
     <string name="susfs_loop_path_label">循环路径</string>
-    <string name="susfs_loop_path_restriction_warning">注意：只有不在 /storage/ 和 /sdcard/ 内的路径才能通过循环路径添加。</string>
+    <string name="susfs_loop_path_restriction_warning">注意：现在支持 /sdcard 与 /storage/emulated 路径（用于 FUSE 应用数据）；/storage/XXXX-XXXX 这类可移动存储路径仍会被拒绝。</string>
     <string name="susfs_invalid_loop_path">无效的循环路径</string>
     <string name="susfs_add_loop_path_failed">添加循环路径失败</string>
     <string name="susfs_edit_loop_path_failed">编辑循环路径失败</string>
@@ -821,7 +821,7 @@
     <string name="theme_adaptive_export_notice">此主题为自适应主题，将导出亮色与暗色两套图片和样式。</string>
     <string name="theme_adaptive_upload_notice">已识别为自适应主题，提交时会自动添加「adaptive」标签。</string>
     <string name="theme_adaptive_tag">自适应主题</string>
-    <string name="theme_adaptive_active">自适应主题已启用（随系统亮/暗模式切换）</string>
+    <string name="theme_dynamic_title">动态壁纸</string><string name="theme_dynamic_tag">动态</string><string name="theme_adaptive_active">自适应主题已启用（随系统亮/暗模式切换）</string>
     <string name="theme_adaptive_active_forced">自适应主题已启用（当前固定为%1$s；选择跟随系统恢复自动切换）</string>
     <string name="theme_adaptive_builder_title">制作自适应主题</string>
     <string name="theme_adaptive_builder_summary">分别记录亮色与暗色外观，导出会随系统模式切换的主题包</string>
@@ -877,12 +877,12 @@
     <string name="theme_opt_app_icon">应用图标</string>
     <string name="theme_opt_custom_texts">自定义文字</string>
     <string name="theme_opt_interface_mode">界面模式（Miuix / 材质）</string>
-    <string name="theme_opt_interface_switches">界面开关（模糊、悬浮底栏、玻璃、导航角标）</string>
+    <string name="theme_opt_interface_switches">界面开关（顶栏样式、按钮背景、模糊、悬浮底栏、玻璃、导航角标）</string>
     <string name="theme_opt_interaction">交互行为（预测性返回、划动关闭、分页手势、页面缩放）</string>
     <string name="theme_opt_module_display">模块显示（排序与描述最大行数）</string>
     <string name="theme_opt_other">其他</string>
     <string name="theme_opt_bottom_bar_icons">自定义底栏图标</string>
-    <string name="theme_upload_to_store">上传到主题商店</string>
+    <string name="theme_opt_dynamic_wallpaper">动态壁纸</string><string name="theme_opt_dynamic_home_card">动态卡片背景</string><string name="theme_upload_to_store">上传到主题商店</string>
     <string name="settings_bottom_bar_icon_home">首页标签图标</string>
     <string name="settings_bottom_bar_icon_superuser">超级用户标签图标</string>
     <string name="settings_bottom_bar_icon_module">模块标签图标</string>
@@ -1019,7 +1019,7 @@
     <string name="theme_store_unauthorized">访问令牌缺失或无效</string>
     <string name="theme_store_default_source">默认源</string>
     <string name="theme_store_default_auto">自动（按地区）</string>
-    <string name="theme_store_partial_failure">部分源加载失败</string>
+    <string name="theme_store_add_default_source">新增默认源</string><string name="theme_store_partial_failure">部分源加载失败</string>
     <string name="theme_store_add_source">添加源</string>
     <string name="theme_store_new_source">新源</string>
     <string name="theme_store_source_name">源名称（可选）</string>
@@ -1225,7 +1225,7 @@
     <string name="theme_store_history_clear_title">清空历史？</string>
     <string name="theme_store_history_clear_viewed_message">清空全部最近查看记录？此操作不可恢复。</string>
     <string name="theme_store_history_clear_downloaded_message">清空全部最近下载记录？此操作不可恢复。</string>
-    <string name="theme_store_history_empty_viewed">还没有查看记录</string>
+    <string name="theme_store_history_long_press_hint">长按一条记录即可多选，然后一起删除。</string><string name="theme_store_downloads_title">我的下载</string><string name="theme_store_downloads_select">选择</string><string name="theme_store_downloads_cancel_selection">取消选择</string><string name="theme_store_downloads_select_all">全选</string><string name="theme_store_downloads_select_none">取消全选</string><string name="theme_store_downloads_delete_selected">删除（%1$d）</string><string name="theme_store_downloads_clear_all">一键清空</string><string name="theme_store_downloads_clear_title">清空已下载的主题包？</string><string name="theme_store_downloads_clear_message">将从本机删除 %1$d 个缓存的安装包（%2$s）。已应用的主题不受影响。</string><string name="theme_store_downloads_summary">%1$d 个主题包 · 已缓存 %2$s</string><string name="theme_store_downloads_empty">还没有下载过主题包</string><string name="theme_store_downloads_empty_hint">在主题商店下载过的主题包会缓存到这里，可离线再次应用。</string><string name="theme_store_downloads_long_press_hint">长按主题包可多选删除，也可以用右上角一键清空。</string><string name="theme_store_downloads_open">应用</string><string name="theme_store_downloads_missing">缓存的安装包已丢失，正在刷新列表。</string><string name="theme_store_history_empty_viewed">还没有查看记录</string>
     <string name="theme_store_history_empty_downloaded">还没有下载记录</string>
     <string name="theme_store_history_missing">主题已不在目录中</string>
     <string name="theme_store_history_login_required">登录账号后同步最近查看与下载</string>
@@ -1291,7 +1291,7 @@
     <string name="theme_store_upload_restore_confirm">确认重新发布「%1$s」？</string>
     <string name="theme_store_sources">镜像源管理</string>
     <string name="theme_store_extra_sources">额外镜像源</string>
-    <string name="theme_store_sources_summary">管理默认目录和额外目录。访问令牌同时用于下载和投稿。</string>
+    <string name="theme_store_sources_summary">管理默认目录。访问令牌同时用于下载和投稿。</string>
     <string name="theme_store_source_endpoints">接口地址</string>
     <string name="theme_store_expand_endpoints">展开接口地址</string>
     <string name="theme_store_collapse_endpoints">收起接口地址</string>
@@ -1448,8 +1448,8 @@
     <string name="settings_check_ci_update_summary">在主页检查 main 分支的 CI 构建，有新版本时提示更新</string>
     <string name="ci_update_busy">正在检查并准备 CI 更新…</string>
     <string name="ci_update_unsupported_arch">不支持此设备架构</string>
-    <string name="ci_update_request_failed">GitHub API 地址无效</string>
-    <string name="ci_update_http_error">GitHub 请求失败（HTTP %1$d），请稍后重试</string>
+    <string name="ci_update_request_failed">更新源下载地址无效</string>
+    <string name="ci_update_http_error">更新请求失败（HTTP %1$d），请稍后重试</string>
     <string name="ci_update_download_failed">CI 更新失败</string>
     <string name="ci_update_archive_too_large">CI 构建产物超过大小限制</string>
     <string name="ci_update_invalid_apk">管理器 APK 或包名无效</string>
@@ -1460,7 +1460,7 @@
     <string name="ci_update_install_success">版本更新安装成功</string>
     <string name="ci_update_install_failed">版本更新安装失败或已取消</string>
     <string name="ci_update_available">发现新的 CI 构建（#%1$d）</string>
-    <string name="settings_custom_background">自定义背景</string>
+    <string name="update_sources_title">更新源</string><string name="update_sources_summary">检查更新和检查 CI 更新会使用这些更新源；内置源始终保持可用。</string><string name="update_sources_auto_hint">自动选择：并行检查所有已启用的源，并使用延迟最低的源。</string><string name="update_sources_pinned_hint">已固定使用 %1$s；不可用时会自动改用延迟最低的源。</string><string name="update_sources_ping_hint">Ping 会测试 Release API 延迟，并抽样测速 APK 下载速度。</string><string name="update_sources_default_source">内置源</string><string name="update_sources_codeberg_name">Codeberg 镜像</string><string name="update_sources_cnb_name">CNB 直链文件</string><string name="update_sources_custom_sources">自定义源</string><string name="update_sources_default_badge">内置</string><string name="update_sources_pinned_badge">已固定</string><string name="update_sources_empty">尚未添加自定义更新源</string><string name="update_sources_platform_github">GitHub · %1$s</string><string name="update_sources_platform_gitea">Gitea / Forgejo · %1$s</string><string name="update_sources_platform_cnb">CNB · %1$s</string><string name="update_sources_platform_cnb_raw">CNB 直链 · %1$s</string><string name="update_sources_add">添加更新源</string><string name="update_sources_add_title">添加更新源</string><string name="update_sources_url">仓库地址</string><string name="update_sources_url_placeholder">https://github.com/owner/repo</string><string name="update_sources_name">名称（可选）</string><string name="update_sources_detected_github">已识别：GitHub · %1$s</string><string name="update_sources_detected_gitea">已识别：Gitea / Forgejo · %1$s</string><string name="update_sources_detected_cnb">已识别：CNB · %1$s</string><string name="update_sources_detected_cnb_raw">已识别：CNB 直链 · %1$s</string><string name="update_sources_invalid_url">无法解析仓库地址，请粘贴完整链接</string><string name="update_sources_duplicate">该更新源已存在</string><string name="update_sources_limit">最多只能添加 %1$d 个自定义源</string><string name="update_sources_pin">固定使用</string><string name="update_sources_unpin">取消固定</string><string name="update_sources_ping">Ping</string><string name="update_sources_ping_all">全部 Ping</string><string name="update_sources_ping_idle">尚未测试</string><string name="update_sources_ping_running">测速中…</string><string name="update_sources_ping_api_only">延迟 %1$d ms</string><string name="update_sources_ping_result">延迟 %1$d ms · 下载 %2$s</string><string name="update_sources_ping_failed">不可用：%1$s</string><string name="update_sources_delete">删除</string><string name="update_sources_delete_title">删除更新源？</string><string name="update_sources_delete_message">删除后检查更新将不再使用 %1$s。</string><string name="update_sources_confirm_delete">删除</string><string name="update_sources_save">保存</string><string name="update_sources_cancel">取消</string><string name="update_progress_downloading_release">正在下载正式版更新</string><string name="update_progress_downloading_ci">正在下载 CI 更新</string><string name="update_progress_verifying">下载完成，正在校验更新包…</string><string name="update_progress_installing">校验通过，正在安装…</string><string name="update_progress_completed">下载完成，管理器即将自动重启以完成更新</string><string name="update_progress_awaiting_user">下载完成，请在系统安装器中确认安装</string><string name="update_progress_failed">更新失败</string><string name="update_progress_detail">%1$d%% · %2$s / %3$s · %4$s</string><string name="update_progress_detail_unknown">%1$s · %2$s</string><string name="settings_custom_background">自定义背景</string>
     <string name="settings_custom_background_summary">选择图片后可调整剪裁区域</string>
     <string name="settings_use_system_wallpaper">使用系统桌面壁纸</string>
     <string name="settings_use_system_wallpaper_summary">将当前桌面壁纸用作应用背景</string>
@@ -1471,7 +1471,7 @@
     <string name="settings_system_wallpaper_failed">无法读取系统壁纸</string>
     <string name="settings_crop_background">重新剪裁背景</string>
     <string name="settings_crop_background_summary">调整背景可见区域，或使用相册剪裁</string>
-    <string name="settings_home_card_image">首页状态卡背景图</string>
+    <string name="dynamic_wallpaper_title">动态壁纸</string><string name="dynamic_wallpaper_settings_summary">MP4 / WebP 动态壁纸，单个最大 308 MB</string><string name="dynamic_wallpaper_limit">单个文件最大 308 MB，视频默认静音，可在预览页开启声音。</string><string name="dynamic_home_card_limit">单个文件最大 308 MB，卡片背景始终静音。</string><string name="dynamic_wallpaper_pending">待应用</string><string name="dynamic_wallpaper_pending_title">应用动态壁纸？</string><string name="dynamic_home_card_pending_title">应用卡片背景？</string><string name="dynamic_wallpaper_empty_title">还没有动态壁纸</string><string name="dynamic_wallpaper_empty_summary">选择 MP4 视频或动态 WebP，作为整个应用的背景播放。</string><string name="dynamic_wallpaper_preview_failed_title">无法播放此壁纸</string><string name="dynamic_wallpaper_preview_failed_summary">当前设备缺少对应的解码器或 WebGL 渲染能力，请更换文件。</string><string name="dynamic_wallpaper_retry">重试预览</string><string name="dynamic_wallpaper_pick">选择 MP4 / WebP</string><string name="dynamic_wallpaper_replace">替换动态壁纸</string><string name="dynamic_home_card_replace">替换卡片背景</string><string name="dynamic_wallpaper_apply">应用</string><string name="dynamic_wallpaper_discard">放弃</string><string name="dynamic_wallpaper_remove">移除动态壁纸</string><string name="dynamic_wallpaper_remove_title">移除动态壁纸？</string><string name="dynamic_home_card_remove_title">移除卡片背景？</string><string name="dynamic_wallpaper_remove_message">将从应用中删除该视频或动态图片，静态背景不会受到影响。</string><string name="dynamic_home_card_remove_message">将从主页卡片移除该视频或动态图片，静态卡片图片不会受到影响。</string><string name="dynamic_wallpaper_mute">视频静音</string><string name="dynamic_wallpaper_mute_summary">播放背景视频时不输出声音</string><string name="dynamic_wallpaper_format_mp4">MP4</string><string name="dynamic_wallpaper_format_webp">WebP</string><string name="dynamic_wallpaper_too_large">文件超过 308 MB 限制</string><string name="dynamic_wallpaper_unsupported">仅支持 MP4 和 WebP 文件</string><string name="dynamic_wallpaper_import_failed">无法导入该壁纸</string><string name="dynamic_wallpaper_apply_failed">无法应用该壁纸</string><string name="dynamic_home_card_apply_failed">无法应用该卡片背景</string><string name="settings_home_card_image">首页状态卡背景图</string>
     <string name="settings_home_card_image_default">使用卡片底色</string>
     <string name="settings_home_card_image_set">已选择图片</string>
     <string name="settings_home_card_image_clear">移除卡片背景图</string>
@@ -1541,7 +1541,7 @@
     <string name="theme_category_icon_text">图标文字</string>
     <string name="theme_category_home_card">首页卡片</string>
     <string name="theme_category_bottom_bar">底栏导航</string>
-    <string name="theme_category_interaction">交互手势</string>
+    <string name="theme_category_top_bar">顶部栏</string><string name="theme_category_interaction">交互手势</string>
     <string name="theme_category_details">界面细节</string>
     <string name="theme_category_theme_package">主题包</string>
     <string name="theme_export">导出主题包</string>
@@ -1561,7 +1561,7 @@
     <string name="theme_reset_confirm_message">卡片不透明度、背景模糊和遮罩将恢复默认，主题配色、动态颜色和自定义背景图片会保留。</string>
     <string name="theme_export_success">已导出主题包</string>
     <string name="theme_export_failed">导出主题包失败</string>
-    <string name="theme_import_success">已导入主题包</string>
+    <string name="theme_export_dynamic_skipped">为控制在 128 MB 以内，已跳过动态壁纸</string><string name="theme_export_package_too_large">主题包超过 128 MB 上限</string><string name="theme_import_success">已导入主题包</string>
     <string name="theme_import_failed">无效的主题包</string>
     <string name="theme_import_failed_restored">主题导入失败，已恢复应用前的外观</string>
     <string name="theme_reset_done">已恢复默认外观</string>
@@ -1756,5 +1756,5 @@
     <string name="builtin_zygisk_opt_custom_linker">自定义链接器</string>
     <string name="builtin_zygisk_opt_custom_linker_summary">使用内置 ELF 加载器加载模块，使其不进入系统链接器的 solist。模块无法这样加载时会回退到系统链接器。</string>
     <string name="builtin_zygisk_opt_lsplt">使用 LSPLT 进行 PLT Hook</string>
-    <string name="builtin_zygisk_opt_lsplt_summary">关闭时使用 ByteHook，开启时使用 LSPLT。</string>
+    <string name="builtin_zygisk_opt_lsplt_summary">关闭时使用 ByteHook，开启时使用 LSPLT。</string><string name="builtin_zygisk_opt_yukiplt">使用 YukiPLT 进行 PLT Hook</string><string name="builtin_zygisk_opt_yukiplt_summary">开启时使用 YukiPLT（默认），关闭时使用 LSPLT。</string><string name="dynamic_home_card_title">动态卡片背景</string><string name="dynamic_home_card_summary">使用 MP4 或动态 WebP 作为主页状态卡片背景</string><string name="dynamic_wallpaper_scale">缩放</string><string name="dynamic_wallpaper_fit_fit">适应</string><string name="dynamic_wallpaper_fit_fill">全部</string><string name="dynamic_wallpaper_fit_custom">自定义</string><string name="dynamic_wallpaper_adjust_hint">双指缩放，拖动移动</string><string name="dynamic_wallpaper_frame_rate">帧率</string><string name="dynamic_wallpaper_frame_rate_auto">原始</string><string name="dynamic_wallpaper_playback_speed">播放速度</string><string name="dynamic_wallpaper_playback_scope">对所有动态壁纸生效</string>
 </resources>
