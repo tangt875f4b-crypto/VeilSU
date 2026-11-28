@@ -19,7 +19,13 @@ use crate::susfs::util::{canonicalize, read_file};
 // ── uname ─────────────────────────────────────────────────────────────────────
 
 /// Spoof the kernel `uname(2)` release / version strings.
+///
+/// As in the upstream CLI, both strings must be non-empty; pass `default`
+/// to keep the running kernel's original value for one of them.
 pub fn set_uname(release: &str, version: &str) -> Result<()> {
+    if release.is_empty() || version.is_empty() {
+        anyhow::bail!("release and version must not be empty");
+    }
     let mut cmd = SusfsUname {
         release: [0; NEW_UTS_LEN + 1],
         version: [0; NEW_UTS_LEN + 1],
@@ -42,7 +48,7 @@ pub fn set_uname(release: &str, version: &str) -> Result<()> {
 /// Enable or disable the SuSFS kernel log.
 pub fn enable_log(enabled: bool) -> Result<()> {
     let mut cmd = SusfsLog {
-        enabled: u32::from(enabled),
+        enabled,
         err: ERR_CMD_NOT_SUPPORTED,
     };
     send(CMD_SUSFS_ENABLE_LOG, &mut cmd, "enable_log")
@@ -51,7 +57,7 @@ pub fn enable_log(enabled: bool) -> Result<()> {
 /// Enable or disable SuSFS's AVC-log spoofing hook.
 pub fn enable_avc_log_spoofing(enabled: bool) -> Result<()> {
     let mut cmd = SusfsAvcLogSpoofing {
-        enabled: u32::from(enabled),
+        enabled,
         err: ERR_CMD_NOT_SUPPORTED,
     };
     send(
@@ -64,7 +70,7 @@ pub fn enable_avc_log_spoofing(enabled: bool) -> Result<()> {
 /// Toggle hiding of SuSFS mount points from non-SU processes.
 pub fn hide_sus_mnts_for_non_su_procs(enabled: bool) -> Result<()> {
     let mut cmd = SusfsHideSusMnts {
-        enabled: u32::from(enabled),
+        enabled,
         err: ERR_CMD_NOT_SUPPORTED,
     };
     send(
