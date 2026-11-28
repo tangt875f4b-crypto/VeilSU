@@ -617,7 +617,7 @@ jobs:
             -S "$SIGN_KEY_PASSWORD" \
             --strip \
             --output-name "$OUTPUT_NAME"
-    - name: Split per-arch and verify
+      - name: Split per-arch and verify
         run: |
           set -eu
           UNIVERSAL="dist/${{ steps.place.outputs.APK_STEM }}.apk"
