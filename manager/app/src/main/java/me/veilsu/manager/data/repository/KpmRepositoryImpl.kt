@@ -2,10 +2,15 @@ package me.veilsu.manager.data.repository
 
 import android.util.Log
 import me.veilsu.manager.ui.util.controlKpmModule
+import me.veilsu.manager.ui.util.getKpmCommands
+import me.veilsu.manager.ui.util.getKpmHelp
 import me.veilsu.manager.ui.util.getKpmModuleInfo
 import me.veilsu.manager.ui.util.listKpmModules
 import me.veilsu.manager.ui.util.loadKpmModule
+import me.veilsu.manager.ui.util.readKpmKernelLog
+import me.veilsu.manager.ui.util.runKpmModule
 import me.veilsu.manager.ui.util.unloadKpmModule
+import me.veilsu.manager.ui.util.KpmRunResult
 import me.veilsu.manager.ui.viewmodel.KpmViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.CancellationException
@@ -63,6 +68,22 @@ class KpmRepositoryImpl : KpmRepository {
         }
     }
 
+    override suspend fun getModuleCommands(moduleId: String): Result<String> = withContext(Dispatchers.IO) {
+        runCatching { getKpmCommands(moduleId) }
+    }
+
+    override suspend fun getModuleHelp(moduleId: String): Result<String> = withContext(Dispatchers.IO) {
+        runCatching { getKpmHelp(moduleId) }
+    }
+
+    override suspend fun runModule(moduleId: String, args: String): Result<KpmRunResult> =
+        withContext(Dispatchers.IO) {
+            runCatching { runKpmModule(moduleId, args) }
+        }
+
+    override suspend fun readKernelLog(moduleId: String): List<String> =
+        readKpmKernelLog(moduleId)
+
     private fun parseModuleInfo(name: String): KpmViewModel.ModuleInfo {
         val info = getKpmModuleInfo(name)
         if (info.isBlank()) {
@@ -74,7 +95,7 @@ class KpmRepositoryImpl : KpmRepository {
                 description = "",
                 args = "",
                 enabled = true,
-                hasAction = true
+                hasAction = false
             )
         }
 
@@ -102,7 +123,9 @@ class KpmRepositoryImpl : KpmRepository {
             description = properties["description"] ?: "",
             args = properties["args"] ?: "",
             enabled = true,
-            hasAction = true
+            // The manager's Execute button drives ctl0.  Modules with only init
+            // (or only ctl1) have no action this UI can invoke, so hide it.
+            hasAction = properties["ctl0"] == "1"
         )
     }
 }
