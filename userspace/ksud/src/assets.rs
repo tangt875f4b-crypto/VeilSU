@@ -7,6 +7,7 @@ mod android {
     use crate::defs::BINARY_DIR;
     use crate::utils::ensure_binary;
     use const_format::concatcp;
+    use std::path::Path;
 
     pub const RESETPROP_PATH: &str = concatcp!(BINARY_DIR, "resetprop");
     pub const BUSYBOX_PATH: &str = concatcp!(BINARY_DIR, "busybox");
@@ -26,6 +27,13 @@ mod android {
             let path = std::path::PathBuf::from(format!("{BINARY_DIR}{file}"));
             // Match ensure_binary's exists semantics before fetching/decompressing the asset.
             if ignore_if_exist && path.exists() {
+                continue;
+            }
+            let path = format!("{BINARY_DIR}{file}");
+            // Asset::get() inflates the embedded file on every call (rust-embed
+            // "compression"). Skip it when the binary is already there: this runs
+            // at every boot in post-fs-data, before any module script.
+            if ignore_if_exist && Path::new(&path).exists() {
                 continue;
             }
             let asset =
