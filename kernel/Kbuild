@@ -190,7 +190,10 @@ KSU_SRC := $(if $(filter $(srctree),$(src)),$(src),$(srctree)/$(src))
 KSU_SRC := $(if $(wildcard $(KSU_SRC)/../.git),$(KSU_SRC),$(MDIR))
 
 git_short_sha    = $(shell cd $(KSU_SRC) && $(GIT_BIN) rev-parse --short=8 HEAD 2>/dev/null)
-git_branch       = $(if $(strip $(KSU_BUILD_REF)),$(KSU_BUILD_REF),$(shell cd $(KSU_SRC) && $(GIT_BIN) rev-parse --abbrev-ref HEAD 2>/dev/null))
+# CI checks out a detached commit, where `rev-parse --abbrev-ref HEAD` reports
+# the literal "HEAD". Fall back to the ref the runner was triggered for, then to
+# any local/remote-tracking branch pointing at the checked-out commit.
+git_branch       = $(if $(strip $(KSU_BUILD_REF)),$(KSU_BUILD_REF),$(shell cd $(KSU_SRC) && b=$$($(GIT_BIN) rev-parse --abbrev-ref HEAD 2>/dev/null) || b=; if [ -z "$$b" ] || [ "$$b" = HEAD ]; then b=$${GITHUB_HEAD_REF:-$${GITHUB_REF_NAME:-$${CI_COMMIT_REF_NAME:-$${BRANCH_NAME:-}}}}; fi; if [ -z "$$b" ] || [ "$$b" = HEAD ]; then b=$$($(GIT_BIN) for-each-ref --points-at HEAD --format='%(refname:short)' refs/heads refs/remotes/origin 2>/dev/null | sed 's|^origin/||' | grep -v '^HEAD$$' | head -n1); fi; printf '%s' "$${b:-unknown}"))
 git_commit_count = $(shell cd $(KSU_SRC) && { $(GIT_BIN) rev-list --count $(REPO_BRANCH) 2>/dev/null || $(GIT_BIN) rev-list --count origin/$(REPO_BRANCH) 2>/dev/null; })
 git_latest_tag   = $(shell cd $(KSU_SRC) && $(GIT_BIN) describe --tags --abbrev=0 --match 'v[0-9]*' 2>/dev/null | sed 's/^v//')
 
