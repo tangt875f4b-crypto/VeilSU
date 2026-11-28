@@ -7,7 +7,10 @@
  * optional event-aware file load for boot-stage modules.
  * LOAD(path,args,user_reserved), UNLOAD(name,user_reserved), NUM(),
  * LIST(kernel_buf,size), INFO(name,kernel_buf,size),
- * CONTROL(name,args,user_output,size), VERSION(kernel_buf,size).
+ * CONTROL(name,args,user_output,size), COMMANDS(name,kernel_buf,size),
+ * VERSION(kernel_buf,size).
+ * Op 9 reports the host identity (VEILSU_KPM_HOST, defined in
+ * uapi/extension.h) as BOOT_IMAGE or MODULE.
  */
 /* Public framing tags: ALL must match. These are not authentication. */
 #define VEILSU_KPM_SUPERCALL_MAGIC 0x53554b504d000002UL
@@ -20,7 +23,7 @@
  */
 #define VEILSU_KPM_ABI_VERSION 2
 #define VEILSU_KPM_PROBE 0
-#define VEILSU_KPM_OUTPUT_MAX 4096
+#define VEILSU_KPM_OUTPUT_MAX 8192
 
 long veilsu_kpm_bridge(unsigned long op, unsigned long a1, unsigned long a2,
                        unsigned long a3, unsigned long a4);
