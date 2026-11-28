@@ -33,9 +33,12 @@ import me.veilsu.manager.data.repository.isAutoDeleteModuleZipEnabled
 import me.veilsu.manager.ui.util.FlashResult
 import me.veilsu.manager.ui.util.LkmSelection
 import me.veilsu.manager.ui.util.downloadBoot
+import me.veilsu.manager.ksuApp
+import me.veilsu.manager.ui.navigation3.deleteExternalZipCache
 import me.veilsu.manager.ui.util.flashModule
 import me.veilsu.manager.ui.util.installBoot
 import me.veilsu.manager.ui.util.installKpmKernelModule
+import me.veilsu.manager.ui.util.removeKpmKernelModule
 import me.veilsu.manager.ui.util.patchKpmBoot
 import me.veilsu.manager.ui.util.removeKpmKernelModule
 import me.veilsu.manager.ui.util.restoreBoot
@@ -119,7 +122,10 @@ sealed class FlashIt : Parcelable {
     data object RemoveKpmModule : FlashIt()
 
     @Parcelize
-    data class FlashModules(val uris: List<Uri>) : FlashIt()
+    data class FlashModules(
+        val uris: List<Uri>,
+        val fromExternalIntent: Boolean = false,
+    ) : FlashIt()
 
     @Parcelize
     data object FlashRestore : FlashIt()
@@ -135,15 +141,19 @@ fun flashModulesSequentially(
     deleteInstalledZips: Boolean = false,
 ): FlashResult {
     var needsReboot = false
-    for (uri in uris) {
-        flashModule(uri, onStdout, onStderr, deleteSourceOnSuccess = deleteInstalledZips).apply {
-            needsReboot = needsReboot || showReboot
-            if (code != 0) {
-                return FlashResult(code, err, needsReboot)
+    try {
+        for (uri in uris) {
+            flashModule(uri, onStdout, onStderr, deleteSourceOnSuccess = deleteInstalledZips).apply {
+                needsReboot = needsReboot || showReboot
+                if (code != 0) {
+                    return FlashResult(code, err, needsReboot)
+                }
             }
         }
+        return FlashResult(0, "", needsReboot)
+    } finally {
+        uris.forEach { deleteExternalZipCache(ksuApp, it) }
     }
-    return FlashResult(0, "", needsReboot)
 }
 
 fun flashIt(
@@ -192,7 +202,7 @@ fun flashIt(
                 uris = flashIt.uris,
                 onStdout = onStdout,
                 onStderr = onStderr,
-                deleteInstalledZips = isAutoDeleteModuleZipEnabled(),
+                deleteInstalledZips = isAutoDeleteModuleZipEnabled() && !flashIt.fromExternalIntent,
             )
         }
 
@@ -213,12 +223,15 @@ fun FlashEffect(
     onTextUpdate: (String) -> Unit,
     onShowRebootChange: (Boolean) -> Unit,
     onFlashingStatusChange: (FlashingStatus) -> Unit,
-    enabled: Boolean = true
+    enabled: Boolean = true,
+    hasStarted: Boolean = false,
+    onFlashStarted: () -> Unit = {},
 ) {
     LaunchedEffect(enabled) {
-        if (!enabled || text.isNotEmpty()) {
+        if (!enabled || hasStarted || text.isNotEmpty()) {
             return@LaunchedEffect
         }
+        onFlashStarted()
         var currentText = text
         val mainHandler = Handler(Looper.getMainLooper())
         withContext(Dispatchers.IO) {
@@ -232,9 +245,13 @@ fun FlashEffect(
                 mainHandler.post {
                     onTextUpdate(currentText)
                 }
-                logContent.append(it).append("\n")
+                synchronized(logContent) {
+                    logContent.append(it).append("\n")
+                }
             }, onStderr = {
-                logContent.append(it).append("\n")
+                synchronized(logContent) {
+                    logContent.append(it).append("\n")
+                }
             }).apply {
                 if (code != 0) {
                     currentText += "Error code: $code.\n $err Please save and check the log.\n"
@@ -260,18 +277,29 @@ fun FlashEffect(
 fun saveLog(
     logContent: StringBuilder,
     scope: CoroutineScope,
+    fallbackText: String = "",
     showMessage: (String) -> Unit
 ): () -> Unit {
     return {
         scope.launch {
-            val format = SimpleDateFormat("yyyy-MM-dd-HH-mm-ss", Locale.getDefault())
-            val date = format.format(Date())
-            val file = File(
-                Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS),
-                "VeilSU_Nova_install_log_${date}.log"
+            val content = synchronized(logContent) {
+                if (logContent.isNotEmpty()) logContent.toString() else fallbackText
+            }
+            val result = withContext(Dispatchers.IO) {
+                runCatching {
+                    val format = SimpleDateFormat("yyyy-MM-dd-HH-mm-ss", Locale.getDefault())
+                    val date = format.format(Date())
+                    val dir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+                    dir.mkdirs()
+                    val file = File(dir, "VeilSU_Nova_install_log_${date}.log")
+                    file.writeText(content)
+                    file.absolutePath
+                }
+            }
+            result.fold(
+                onSuccess = { path -> showMessage("Log saved to $path") },
+                onFailure = { e -> showMessage("Failed to save log: ${e.message ?: e.javaClass.simpleName}") }
             )
-            file.writeText(logContent.toString())
-            showMessage("Log saved to ${file.absolutePath}")
         }
     }
 }
